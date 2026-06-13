@@ -41,7 +41,7 @@ export default function ExitTicketsPage() {
 
   async function load() {
     const [{ data: days }, { data: resp }] = await Promise.all([
-      supabase.from('program_days').select('id, title, date, has_exit_ticket, questions').eq('has_exit_ticket', true).order('sort_order'),
+      supabase.from('program_days').select('id, title, date, has_exit_ticket, questions').order('sort_order'),
       supabase.from('exit_ticket_responses').select('*, profiles(name, email)').order('submitted_at', { ascending: false }),
     ])
     const dayList = (days ?? []).map((d: any) => ({ ...d, questions: d.questions ?? [] }))
@@ -93,7 +93,7 @@ export default function ExitTicketsPage() {
           <div className="text-center py-16 text-gray-300">
             <div className="text-5xl mb-4">📋</div>
             <p className="font-semibold text-gray-400">No exit ticket days yet</p>
-            <p className="text-sm mt-1">Enable "Has Exit Ticket" on a program day to get started</p>
+            <p className="text-sm mt-1">Add program days first to manage exit tickets</p>
           </div>
         ) : (
           <div className="flex gap-6">

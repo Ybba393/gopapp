@@ -15,20 +15,21 @@ CREATE POLICY "Students: read own group members" ON public.group_members
     group_id = public.get_my_group_id()
   );
 
--- Announcements table (admin → students)
+-- Announcements table (admin → capstone groups)
+-- group_id NULL = send to all groups
 CREATE TABLE IF NOT EXISTS public.announcements (
   id         uuid primary key default uuid_generate_v4(),
-  cohort_id  uuid references public.cohorts(id) on delete cascade,
+  group_id   uuid references public.capstone_groups(id) on delete cascade,
   content    text not null,
   created_at timestamptz not null default now()
 );
 
 ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Students: read own cohort announcements" ON public.announcements
+CREATE POLICY "Students: read own group announcements" ON public.announcements
   FOR SELECT USING (
-    cohort_id IS NULL OR
-    cohort_id = (SELECT cohort_id FROM public.profiles WHERE id = auth.uid())
+    group_id IS NULL OR
+    group_id = public.get_my_group_id()
   );
 
 CREATE POLICY "Admins: manage announcements" ON public.announcements

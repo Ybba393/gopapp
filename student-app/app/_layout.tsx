@@ -9,7 +9,7 @@ export default function RootLayout() {
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
-        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(auth)/login" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="change-password" />
         <Stack.Screen name="exit-ticket/race-culture" />

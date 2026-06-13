@@ -17,11 +17,11 @@ interface Announcement {
   id: string
   content: string
   created_at: string
-  cohort_id: string | null
-  cohorts: { name: string } | null
+  group_id: string | null
+  capstone_groups: { name: string } | null
 }
 
-interface Cohort { id: string; name: string }
+interface CapstoneGroup { id: string; name: string }
 
 export default function MessagesPage() {
   const supabase = createClient()
@@ -36,10 +36,10 @@ export default function MessagesPage() {
 
   // Announcements
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
-  const [cohorts, setCohorts] = useState<Cohort[]>([])
+  const [groups, setGroups] = useState<CapstoneGroup[]>([])
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(true)
   const [announcementText, setAnnouncementText] = useState('')
-  const [selectedCohort, setSelectedCohort] = useState<string>('all')
+  const [selectedGroup, setSelectedGroup] = useState<string>('all')
   const [sendingAnnouncement, setSendingAnnouncement] = useState(false)
 
   async function loadMessages() {
@@ -52,12 +52,12 @@ export default function MessagesPage() {
   }
 
   async function loadAnnouncements() {
-    const [{ data: ann }, { data: coh }] = await Promise.all([
-      supabase.from('announcements').select('*, cohorts(name)').order('created_at', { ascending: false }),
-      supabase.from('cohorts').select('id, name').order('year', { ascending: false }),
+    const [{ data: ann }, { data: grp }] = await Promise.all([
+      supabase.from('announcements').select('*, capstone_groups(name)').order('created_at', { ascending: false }),
+      supabase.from('capstone_groups').select('id, name').order('name'),
     ])
     setAnnouncements((ann ?? []) as any)
-    setCohorts(coh ?? [])
+    setGroups(grp ?? [])
     setLoadingAnnouncements(false)
   }
 
@@ -84,7 +84,7 @@ export default function MessagesPage() {
     setSendingAnnouncement(true)
     await supabase.from('announcements').insert({
       content: announcementText.trim(),
-      cohort_id: selectedCohort === 'all' ? null : selectedCohort,
+      group_id: selectedGroup === 'all' ? null : selectedGroup,
     })
     setAnnouncementText('')
     setSendingAnnouncement(false)
@@ -182,10 +182,10 @@ export default function MessagesPage() {
               <h2 className="font-black text-base mb-4" style={{ color: '#0D2137' }}>Send Announcement</h2>
               <div className="mb-3">
                 <label className="block text-xs font-semibold text-gray-400 uppercase mb-2">Send to</label>
-                <select value={selectedCohort} onChange={(e) => setSelectedCohort(e.target.value)}
+                <select value={selectedGroup} onChange={(e) => setSelectedGroup(e.target.value)}
                   className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400 min-w-52">
-                  <option value="all">All Cohorts</option>
-                  {cohorts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  <option value="all">All Capstone Groups</option>
+                  {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
                 </select>
               </div>
               <textarea
@@ -219,7 +219,7 @@ export default function MessagesPage() {
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-xs font-bold px-2.5 py-0.5 rounded-full"
                             style={{ backgroundColor: '#EEF3FA', color: '#0D2137' }}>
-                            {ann.cohort_id ? ((ann.cohorts as any)?.name ?? 'Cohort') : '📣 All Cohorts'}
+                            {ann.group_id ? ((ann.capstone_groups as any)?.name ?? 'Group') : '📣 All Groups'}
                           </span>
                           <span className="text-xs text-gray-400">
                             {new Date(ann.created_at).toLocaleDateString()} {new Date(ann.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
