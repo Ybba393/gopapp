@@ -1,6 +1,8 @@
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient, type CookieMethodsServer } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+
+type CookieToSet = Parameters<CookieMethodsServer['setAll']>[0][number]
 
 // For server components / route handlers that need auth context
 export async function createServerSupabase() {
@@ -13,7 +15,7 @@ export async function createServerSupabase() {
         getAll() {
           return cookieStore.getAll()
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: CookieToSet[]) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
