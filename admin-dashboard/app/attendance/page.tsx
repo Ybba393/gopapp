@@ -92,7 +92,12 @@ export default function AttendancePage() {
 
   const activeDay = programDays.find((d) => d.id === selectedDay)
   const checkedInIds = new Set(checkIns.map((c) => c.student_id))
-  const notCheckedIn = rosterStudents.filter((s) => !checkedInIds.has(s.id))
+  const dayHasPassed = activeDay
+    ? activeDay.date <= new Date().toISOString().split('T')[0]
+    : false
+  const notCheckedIn = dayHasPassed
+    ? rosterStudents.filter((s) => !checkedInIds.has(s.id))
+    : []
 
   return (
     <AdminLayout>
@@ -153,9 +158,11 @@ export default function AttendancePage() {
                     </div>
                     <div className="flex-1 bg-white rounded-2xl border border-gray-100 px-5 py-4 text-center">
                       <div className="text-3xl font-black text-red-400">
-                        {loadingCheckIns ? '—' : notCheckedIn.length}
+                        {loadingCheckIns || !dayHasPassed ? '—' : notCheckedIn.length}
                       </div>
-                      <div className="text-xs font-semibold text-gray-400 mt-1">Absent</div>
+                      <div className="text-xs font-semibold text-gray-400 mt-1">
+                        {dayHasPassed ? 'Absent' : 'Upcoming'}
+                      </div>
                     </div>
                     <div className="flex-1 bg-white rounded-2xl border border-gray-100 px-5 py-4 text-center">
                       <div className="text-3xl font-black text-gray-300">
