@@ -256,12 +256,12 @@ export default function RoadmapScreen() {
                     ) : null}
 
                     {/* Exit Ticket button */}
-                    {day.has_exit_ticket && exitTicketDoneSet.has(day.id) ? (
+                    {exitTicketDoneSet.has(day.id) ? (
                       <View style={styles.checkedInBadge}>
                         <Ionicons name="checkmark-circle" size={14} color={colors.success} />
                         <Text style={styles.checkedInText}>Exit Ticket Done</Text>
                       </View>
-                    ) : day.has_exit_ticket && exitTicketOpen ? (
+                    ) : exitTicketOpen ? (
                       <TouchableOpacity
                         style={[styles.actionBtn, styles.exitTicketBtn]}
                         onPress={() => router.push(`/exit-ticket/${day.id}` as any)}
@@ -269,12 +269,12 @@ export default function RoadmapScreen() {
                         <Ionicons name="document-text-outline" size={14} color={colors.primaryMid} />
                         <Text style={styles.exitTicketText}>Exit Ticket</Text>
                       </TouchableOpacity>
-                    ) : day.has_exit_ticket ? (
+                    ) : (
                       <View style={[styles.actionBtn, styles.comingSoonBtn]}>
                         <Ionicons name="lock-closed-outline" size={14} color={colors.textMuted} />
                         <Text style={styles.comingSoonText}>Exit Ticket</Text>
                       </View>
-                    ) : null}
+                    )}
                   </View>
                 </View>
               </View>
