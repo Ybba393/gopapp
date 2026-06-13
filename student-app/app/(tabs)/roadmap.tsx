@@ -40,18 +40,9 @@ function getDayStatus(dateStr: string): 'past' | 'today' | 'upcoming' {
   return 'upcoming';
 }
 
-function canCheckIn(dateStr: string): boolean {
-  const now = new Date();
-  const dayStr = now.toISOString().split('T')[0];
-  if (dateStr !== dayStr) return false;
-  return now.getHours() >= 9;
-}
-
-function canAccessExitTicket(dateStr: string): boolean {
-  const now = new Date();
-  const dayStr = now.toISOString().split('T')[0];
-  if (dateStr !== dayStr) return false;
-  return now.getHours() >= 15; // 3:00 PM
+function isOpenNow(opensAt: string | null): boolean {
+  if (!opensAt) return false;
+  return new Date(opensAt) <= new Date();
 }
 
 export default function RoadmapScreen() {
@@ -123,10 +114,12 @@ export default function RoadmapScreen() {
       return;
     }
 
-    if (!canCheckIn(day.date)) {
+    if (!isOpenNow(day.checkin_opens_at)) {
       Alert.alert(
         'Check-in Not Available',
-        'Check-in opens at 9:00 AM on the day of the program.'
+        day.checkin_opens_at
+          ? `Check-in opens ${new Date(day.checkin_opens_at).toLocaleString()}.`
+          : 'Check-in is not yet available for this day.'
       );
       return;
     }
@@ -204,6 +197,8 @@ export default function RoadmapScreen() {
             const isCheckingInThis = checkingIn === day.id;
             const isToday = status === 'today';
             const isPast = status === 'past';
+            const checkInOpen = isOpenNow(day.checkin_opens_at);
+            const exitTicketOpen = isOpenNow(day.exit_ticket_opens_at);
 
             return (
               <View key={day.id} style={styles.dayCard}>
@@ -238,13 +233,9 @@ export default function RoadmapScreen() {
                         <Ionicons name="checkmark-circle" size={14} color={colors.success} />
                         <Text style={styles.checkedInText}>Checked In</Text>
                       </View>
-                    ) : (
+                    ) : checkInOpen ? (
                       <TouchableOpacity
-                        style={[
-                          styles.actionBtn,
-                          styles.checkInBtn,
-                          (!isToday || isCheckingInThis) && styles.actionBtnDisabled,
-                        ]}
+                        style={[styles.actionBtn, styles.checkInBtn, isCheckingInThis && styles.actionBtnDisabled]}
                         onPress={() => handleCheckIn(day)}
                         disabled={isCheckingInThis}
                       >
@@ -252,23 +243,17 @@ export default function RoadmapScreen() {
                           <ActivityIndicator size="small" color={colors.primary} />
                         ) : (
                           <>
-                            <Ionicons
-                              name="log-in-outline"
-                              size={14}
-                              color={isToday ? colors.primary : colors.textMuted}
-                            />
-                            <Text
-                              style={[
-                                styles.actionBtnText,
-                                !isToday && styles.actionBtnTextDisabled,
-                              ]}
-                            >
-                              Check In
-                            </Text>
+                            <Ionicons name="log-in-outline" size={14} color={colors.primary} />
+                            <Text style={styles.actionBtnText}>Check In</Text>
                           </>
                         )}
                       </TouchableOpacity>
-                    )}
+                    ) : !isPast ? (
+                      <View style={[styles.actionBtn, styles.actionBtnDisabled]}>
+                        <Ionicons name="lock-closed-outline" size={14} color={colors.textMuted} />
+                        <Text style={styles.actionBtnTextDisabled}>Check In</Text>
+                      </View>
+                    ) : null}
 
                     {/* Exit Ticket button */}
                     {day.has_exit_ticket && exitTicketDoneSet.has(day.id) ? (
@@ -276,7 +261,7 @@ export default function RoadmapScreen() {
                         <Ionicons name="checkmark-circle" size={14} color={colors.success} />
                         <Text style={styles.checkedInText}>Exit Ticket Done</Text>
                       </View>
-                    ) : day.has_exit_ticket && (isPast || canAccessExitTicket(day.date)) ? (
+                    ) : day.has_exit_ticket && exitTicketOpen ? (
                       <TouchableOpacity
                         style={[styles.actionBtn, styles.exitTicketBtn]}
                         onPress={() => router.push(`/exit-ticket/${day.id}` as any)}
@@ -284,10 +269,10 @@ export default function RoadmapScreen() {
                         <Ionicons name="document-text-outline" size={14} color={colors.primaryMid} />
                         <Text style={styles.exitTicketText}>Exit Ticket</Text>
                       </TouchableOpacity>
-                    ) : day.has_exit_ticket && isToday ? (
+                    ) : day.has_exit_ticket && !isPast ? (
                       <View style={[styles.actionBtn, styles.comingSoonBtn]}>
-                        <Ionicons name="time-outline" size={14} color={colors.textMuted} />
-                        <Text style={styles.comingSoonText}>Opens at 3:00 PM</Text>
+                        <Ionicons name="lock-closed-outline" size={14} color={colors.textMuted} />
+                        <Text style={styles.comingSoonText}>Not yet open</Text>
                       </View>
                     ) : null}
                   </View>

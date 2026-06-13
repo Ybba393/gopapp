@@ -54,6 +54,8 @@ export interface ProgramDay {
   date: string;
   has_exit_ticket: boolean;
   sort_order: number;
+  checkin_opens_at: string | null;
+  exit_ticket_opens_at: string | null;
   created_at: string;
   attendance?: Attendance[];
 }

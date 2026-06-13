@@ -31,6 +31,8 @@ interface ProgramDay {
   title: string
   date: string
   questions: Question[]
+  checkin_opens_at: string | null
+  exit_ticket_opens_at: string | null
 }
 
 
@@ -221,7 +223,7 @@ export default function ExitTicketsPage() {
 
   async function load() {
     const [{ data: days }, { data: resp }] = await Promise.all([
-      supabase.from('program_days').select('id, title, date, questions').order('sort_order'),
+      supabase.from('program_days').select('id, title, date, questions, checkin_opens_at, exit_ticket_opens_at').order('sort_order'),
       supabase.from('exit_ticket_responses').select('*, profiles(name, email)').order('submitted_at', { ascending: false }),
     ])
     const dayList = (days ?? []).map((d: any) => ({
@@ -259,6 +261,12 @@ export default function ExitTicketsPage() {
     setProgramDays((prev) => prev.map((d) => d.id === dayId ? { ...d, date: newDate } : d))
     setSavingDate(false)
     setEditingDate(null)
+  }
+
+  async function handleSaveOpensAt(dayId: string, field: 'checkin_opens_at' | 'exit_ticket_opens_at', val: string | null) {
+    const iso = val ? new Date(val).toISOString() : null
+    await supabase.from('program_days').update({ [field]: iso }).eq('id', dayId)
+    setProgramDays((prev) => prev.map((d) => d.id === dayId ? { ...d, [field]: iso } : d))
   }
 
   async function handleSaveQuestions() {
@@ -328,42 +336,78 @@ export default function ExitTicketsPage() {
                   </button>
                 </div>
 
-                <div className="mb-4">
+                <div className="mb-5 bg-gray-50 border border-gray-200 rounded-2xl p-4 space-y-3">
                   <h2 className="text-lg font-black" style={{ color: '#0D2137' }}>{activeDay.title}</h2>
-                  <div className="flex items-center gap-2 mt-1">
+
+                  {/* Program day date */}
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wide w-32">Program Date</span>
                     {editingDate !== null ? (
-                      <>
-                        <input
-                          type="date"
-                          value={editingDate}
+                      <div className="flex items-center gap-2">
+                        <input type="date" value={editingDate}
                           onChange={(e) => setEditingDate(e.target.value)}
-                          className="border border-gray-200 rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D2137]"
-                        />
-                        <button
-                          onClick={() => handleSaveDate(activeDay.id, editingDate)}
-                          disabled={savingDate}
-                          className="text-xs font-bold text-white bg-[#0D2137] px-3 py-1.5 rounded-lg disabled:opacity-50"
-                        >
+                          className="border border-gray-200 rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D2137]" />
+                        <button onClick={() => handleSaveDate(activeDay.id, editingDate)} disabled={savingDate}
+                          className="text-xs font-bold text-white bg-[#0D2137] px-3 py-1.5 rounded-lg disabled:opacity-50">
                           {savingDate ? 'Saving…' : 'Save'}
                         </button>
-                        <button
-                          onClick={() => setEditingDate(null)}
-                          className="text-xs text-gray-400 hover:text-gray-600"
-                        >
-                          Cancel
-                        </button>
-                      </>
+                        <button onClick={() => setEditingDate(null)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+                      </div>
                     ) : (
-                      <>
-                        <p className="text-sm text-gray-400">{formatDate(activeDay.date)}</p>
-                        <button
-                          onClick={() => setEditingDate(activeDay.date)}
-                          className="text-xs text-[#D4A853] font-semibold hover:underline"
-                        >
-                          Change date
-                        </button>
-                      </>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-700 font-medium">{formatDate(activeDay.date)}</span>
+                        <button onClick={() => setEditingDate(activeDay.date)}
+                          className="text-xs text-[#D4A853] font-semibold hover:underline">Edit</button>
+                      </div>
                     )}
+                  </div>
+
+                  {/* Check-in opens */}
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wide w-32">Check-in Opens</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="datetime-local"
+                        value={activeDay.checkin_opens_at ? activeDay.checkin_opens_at.slice(0, 16) : ''}
+                        onChange={(e) => handleSaveOpensAt(activeDay.id, 'checkin_opens_at', e.target.value || null)}
+                        className="border border-gray-200 rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D2137]"
+                      />
+                      {activeDay.checkin_opens_at ? (
+                        <>
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${new Date(activeDay.checkin_opens_at) <= new Date() ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                            {new Date(activeDay.checkin_opens_at) <= new Date() ? '🟢 Open' : '🟡 Scheduled'}
+                          </span>
+                          <button onClick={() => handleSaveOpensAt(activeDay.id, 'checkin_opens_at', null)}
+                            className="text-xs text-red-400 hover:text-red-600">Clear</button>
+                        </>
+                      ) : (
+                        <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">🔒 Not set</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Exit ticket opens */}
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wide w-32">Exit Ticket Opens</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="datetime-local"
+                        value={activeDay.exit_ticket_opens_at ? activeDay.exit_ticket_opens_at.slice(0, 16) : ''}
+                        onChange={(e) => handleSaveOpensAt(activeDay.id, 'exit_ticket_opens_at', e.target.value || null)}
+                        className="border border-gray-200 rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D2137]"
+                      />
+                      {activeDay.exit_ticket_opens_at ? (
+                        <>
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${new Date(activeDay.exit_ticket_opens_at) <= new Date() ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                            {new Date(activeDay.exit_ticket_opens_at) <= new Date() ? '🟢 Open' : '🟡 Scheduled'}
+                          </span>
+                          <button onClick={() => handleSaveOpensAt(activeDay.id, 'exit_ticket_opens_at', null)}
+                            className="text-xs text-red-400 hover:text-red-600">Clear</button>
+                        </>
+                      ) : (
+                        <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">🔒 Not set</span>
+                      )}
+                    </div>
                   </div>
                 </div>
 

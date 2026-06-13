@@ -136,7 +136,7 @@ export default function DashboardScreen() {
           <View style={styles.reminderCard}>
             <Ionicons name="alert-circle" size={18} color="#B45309" />
             <Text style={styles.reminderText}>
-              You may only miss <Text style={styles.reminderBold}>1 program day</Text> to remain in Generation of Promise.
+              You may only miss <Text style={styles.reminderBold}>1 program day</Text>.
             </Text>
           </View>
 
