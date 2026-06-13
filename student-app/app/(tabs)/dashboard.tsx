@@ -132,6 +132,14 @@ export default function DashboardScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
           }
         >
+          {/* Attendance reminder */}
+          <View style={styles.reminderCard}>
+            <Ionicons name="alert-circle" size={18} color="#B45309" />
+            <Text style={styles.reminderText}>
+              You may only miss <Text style={styles.reminderBold}>1 program day</Text> to remain in Generation of Promise.
+            </Text>
+          </View>
+
           {/* Stats row */}
           <View style={styles.statsRow}>
             <StatCard
@@ -422,6 +430,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.textPrimary,
+  },
+  reminderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+  },
+  reminderText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#92400E',
+    lineHeight: 18,
+  },
+  reminderBold: {
+    fontWeight: '800',
+    color: '#92400E',
   },
   missionCard: {
     backgroundColor: colors.primary,

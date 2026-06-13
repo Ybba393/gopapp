@@ -33,6 +33,8 @@ interface ProgramDay {
   questions: Question[]
 }
 
+
+
 const TYPE_LABELS: Record<QuestionType, string> = {
   rating: '⭐ Star Rating (1–5)',
   text: '✏️ Short Answer',
@@ -214,6 +216,8 @@ export default function ExitTicketsPage() {
   const [editQuestions, setEditQuestions] = useState<Question[]>([])
   const [savingQuestions, setSavingQuestions] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
+  const [editingDate, setEditingDate] = useState<string | null>(null)
+  const [savingDate, setSavingDate] = useState(false)
 
   async function load() {
     const [{ data: days }, { data: resp }] = await Promise.all([
@@ -245,6 +249,16 @@ export default function ExitTicketsPage() {
     setSavedMsg('')
     const day = programDays.find((d) => d.id === id)
     setEditQuestions(day?.questions ?? [])
+    setEditingDate(null)
+  }
+
+  async function handleSaveDate(dayId: string, newDate: string) {
+    if (!newDate.match(/^\d{4}-\d{2}-\d{2}$/)) return
+    setSavingDate(true)
+    await supabase.from('program_days').update({ date: newDate }).eq('id', dayId)
+    setProgramDays((prev) => prev.map((d) => d.id === dayId ? { ...d, date: newDate } : d))
+    setSavingDate(false)
+    setEditingDate(null)
   }
 
   async function handleSaveQuestions() {
@@ -316,7 +330,41 @@ export default function ExitTicketsPage() {
 
                 <div className="mb-4">
                   <h2 className="text-lg font-black" style={{ color: '#0D2137' }}>{activeDay.title}</h2>
-                  <p className="text-sm text-gray-400">{formatDate(activeDay.date)}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    {editingDate !== null ? (
+                      <>
+                        <input
+                          type="date"
+                          value={editingDate}
+                          onChange={(e) => setEditingDate(e.target.value)}
+                          className="border border-gray-200 rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D2137]"
+                        />
+                        <button
+                          onClick={() => handleSaveDate(activeDay.id, editingDate)}
+                          disabled={savingDate}
+                          className="text-xs font-bold text-white bg-[#0D2137] px-3 py-1.5 rounded-lg disabled:opacity-50"
+                        >
+                          {savingDate ? 'Saving…' : 'Save'}
+                        </button>
+                        <button
+                          onClick={() => setEditingDate(null)}
+                          className="text-xs text-gray-400 hover:text-gray-600"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm text-gray-400">{formatDate(activeDay.date)}</p>
+                        <button
+                          onClick={() => setEditingDate(activeDay.date)}
+                          className="text-xs text-[#D4A853] font-semibold hover:underline"
+                        >
+                          Change date
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {/* Responses view */}

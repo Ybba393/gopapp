@@ -276,7 +276,7 @@ export default function RoadmapScreen() {
                         <Ionicons name="checkmark-circle" size={14} color={colors.success} />
                         <Text style={styles.checkedInText}>Exit Ticket Done</Text>
                       </View>
-                    ) : day.has_exit_ticket && canAccessExitTicket(day.date) ? (
+                    ) : day.has_exit_ticket && (isPast || canAccessExitTicket(day.date)) ? (
                       <TouchableOpacity
                         style={[styles.actionBtn, styles.exitTicketBtn]}
                         onPress={() => router.push(`/exit-ticket/${day.id}` as any)}
@@ -288,11 +288,6 @@ export default function RoadmapScreen() {
                       <View style={[styles.actionBtn, styles.comingSoonBtn]}>
                         <Ionicons name="time-outline" size={14} color={colors.textMuted} />
                         <Text style={styles.comingSoonText}>Opens at 3:00 PM</Text>
-                      </View>
-                    ) : day.has_exit_ticket && isPast ? (
-                      <View style={[styles.actionBtn, styles.comingSoonBtn]}>
-                        <Ionicons name="document-text-outline" size={14} color={colors.textMuted} />
-                        <Text style={styles.comingSoonText}>Closed</Text>
                       </View>
                     ) : null}
                   </View>

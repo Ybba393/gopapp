@@ -74,6 +74,24 @@ export default function HoursScreen() {
     setModalVisible(true);
   }
 
+  async function handleDelete(logId: string) {
+    Alert.alert(
+      'Delete Entry',
+      'Are you sure you want to delete this log?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await supabase.from('volunteer_logs').delete().eq('id', logId);
+            await loadLogs();
+          },
+        },
+      ]
+    );
+  }
+
   async function handleSubmit() {
     if (!projectName.trim()) { Alert.alert('Error', 'Please enter a project name.'); return; }
     const hours = parseFloat(hoursStr);
@@ -160,6 +178,13 @@ export default function HoursScreen() {
                     </Text>
                   ) : null}
                 </View>
+                <TouchableOpacity
+                  onPress={() => handleDelete(log.id)}
+                  style={styles.deleteBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
+                </TouchableOpacity>
               </View>
             ))
           )}
@@ -401,6 +426,10 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 17,
     marginTop: 2,
+  },
+  deleteBtn: {
+    padding: 4,
+    alignSelf: 'center',
   },
   // Modal
   modalRoot: {
