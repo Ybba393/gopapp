@@ -4,6 +4,19 @@ import { useEffect, useState } from 'react'
 import AdminLayout from '@/components/AdminLayout'
 import { createClient } from '@/lib/supabase-client'
 
+// ── Types ────────────────────────────────────────────────────────────────────
+
+type QuestionType = 'rating' | 'text' | 'textarea' | 'single' | 'multi'
+
+interface Question {
+  id: string
+  type: QuestionType
+  text: string
+  options?: string[]
+  maxSelect?: number
+  required?: boolean
+}
+
 interface TicketResponse {
   id: string
   submitted_at: string
@@ -17,13 +30,177 @@ interface ProgramDay {
   id: string
   title: string
   date: string
-  has_exit_ticket: boolean
-  questions: string[]
+  questions: Question[]
+}
+
+const TYPE_LABELS: Record<QuestionType, string> = {
+  rating: '⭐ Star Rating (1–5)',
+  text: '✏️ Short Answer',
+  textarea: '📝 Long Answer',
+  single: '🔘 Single Choice',
+  multi: '☑️ Multiple Choice',
 }
 
 function formatDate(d: string) {
   return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
+
+function newQuestion(): Question {
+  return { id: crypto.randomUUID(), type: 'text', text: '', required: true }
+}
+
+// ── Question Editor ──────────────────────────────────────────────────────────
+
+function QuestionEditor({ q, onChange, onDelete }: {
+  q: Question
+  onChange: (updated: Question) => void
+  onDelete: () => void
+}) {
+  function setType(type: QuestionType) {
+    const updated: Question = { ...q, type }
+    if (type === 'single' || type === 'multi') {
+      if (!updated.options || updated.options.length === 0) updated.options = ['']
+    } else {
+      delete updated.options
+      delete updated.maxSelect
+    }
+    onChange(updated)
+  }
+
+  function setOption(i: number, val: string) {
+    const opts = [...(q.options ?? [])]
+    opts[i] = val
+    onChange({ ...q, options: opts })
+  }
+
+  function addOption() {
+    onChange({ ...q, options: [...(q.options ?? []), ''] })
+  }
+
+  function removeOption(i: number) {
+    onChange({ ...q, options: (q.options ?? []).filter((_, idx) => idx !== i) })
+  }
+
+  return (
+    <div className="bg-white border border-gray-100 rounded-2xl p-5 space-y-3">
+      {/* Question type + delete */}
+      <div className="flex items-center gap-3">
+        <select value={q.type} onChange={(e) => setType(e.target.value as QuestionType)}
+          className="border border-gray-200 rounded-xl px-3 py-2 text-sm font-semibold focus:outline-none focus:border-blue-400 bg-gray-50">
+          {(Object.entries(TYPE_LABELS) as [QuestionType, string][]).map(([val, label]) => (
+            <option key={val} value={val}>{label}</option>
+          ))}
+        </select>
+        <label className="flex items-center gap-2 text-sm text-gray-500 ml-auto cursor-pointer">
+          <input type="checkbox" checked={q.required !== false}
+            onChange={(e) => onChange({ ...q, required: e.target.checked })} />
+          Required
+        </label>
+        <button onClick={onDelete} className="text-gray-300 hover:text-red-400 text-lg px-1">✕</button>
+      </div>
+
+      {/* Question text */}
+      <input type="text" value={q.text}
+        onChange={(e) => onChange({ ...q, text: e.target.value })}
+        placeholder="Question text..."
+        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400" />
+
+      {/* Options for single/multi */}
+      {(q.type === 'single' || q.type === 'multi') && (
+        <div className="pl-2 space-y-2">
+          {q.type === 'multi' && (
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-400 font-semibold">Max selections:</label>
+              <input type="number" min={1} max={20}
+                value={q.maxSelect ?? ''}
+                onChange={(e) => onChange({ ...q, maxSelect: e.target.value ? parseInt(e.target.value) : undefined })}
+                placeholder="Any"
+                className="w-20 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none" />
+            </div>
+          )}
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Options</p>
+          {(q.options ?? []).map((opt, i) => (
+            <div key={i} className="flex gap-2 items-center">
+              <span className="text-xs text-gray-300">·</span>
+              <input type="text" value={opt} onChange={(e) => setOption(i, e.target.value)}
+                placeholder={`Option ${i + 1}`}
+                className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+              <button onClick={() => removeOption(i)}
+                className="text-gray-300 hover:text-red-400 text-base">✕</button>
+            </div>
+          ))}
+          <button onClick={addOption} className="text-xs font-bold text-blue-500 hover:text-blue-700">
+            + Add option
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Response Detail ──────────────────────────────────────────────────────────
+
+function ResponseDetail({ r, questions, onClose }: {
+  r: TicketResponse; questions: Question[]; onClose: () => void
+}) {
+  function renderAnswer(q: Question) {
+    const val = r.responses?.answers?.[q.id]
+    if (val === undefined || val === null || val === '' || val === 0) {
+      return <span className="text-gray-300 italic text-sm">No answer</span>
+    }
+    if (q.type === 'rating') {
+      return (
+        <div className="flex items-center gap-1">
+          {[1,2,3,4,5].map((s) => (
+            <span key={s} style={{ color: s <= val ? '#D4A853' : '#E5E7EB', fontSize: 20 }}>★</span>
+          ))}
+          <span className="text-sm text-gray-500 ml-1">{val}/5</span>
+        </div>
+      )
+    }
+    if (Array.isArray(val)) {
+      return (
+        <div className="flex flex-wrap gap-2">
+          {val.map((v: string, i: number) => (
+            <span key={i} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-semibold">{v}</span>
+          ))}
+        </div>
+      )
+    }
+    return <p className="text-sm text-gray-700 bg-gray-50 rounded-xl px-4 py-3">{String(val)}</p>
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto pt-12">
+      <div className="bg-white rounded-2xl w-full max-w-xl shadow-xl mb-8">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <div>
+            <h2 className="text-xl font-black" style={{ color: '#0D2137' }}>{r.profiles?.name}</h2>
+            <p className="text-sm text-gray-400">{r.profiles?.email}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+        </div>
+        <div className="p-6 space-y-5">
+          {questions.length > 0 ? questions.map((q) => (
+            <div key={q.id}>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">{q.text}</p>
+              {renderAnswer(q)}
+            </div>
+          )) : (
+            <pre className="text-xs text-gray-600 bg-gray-50 rounded-xl p-4 overflow-auto">
+              {JSON.stringify(r.responses, null, 2)}
+            </pre>
+          )}
+          <p className="text-xs text-gray-400 pt-2">
+            Submitted {new Date(r.submitted_at).toLocaleString()}
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ExitTicketsPage() {
   const supabase = createClient()
@@ -34,17 +211,23 @@ export default function ExitTicketsPage() {
   const [selectedResponse, setSelectedResponse] = useState<TicketResponse | null>(null)
   const [view, setView] = useState<'responses' | 'questions'>('responses')
 
-  // Question editing
-  const [editQuestions, setEditQuestions] = useState<string[]>([])
+  const [editQuestions, setEditQuestions] = useState<Question[]>([])
   const [savingQuestions, setSavingQuestions] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
 
   async function load() {
     const [{ data: days }, { data: resp }] = await Promise.all([
-      supabase.from('program_days').select('id, title, date, has_exit_ticket, questions').order('sort_order'),
+      supabase.from('program_days').select('id, title, date, questions').order('sort_order'),
       supabase.from('exit_ticket_responses').select('*, profiles(name, email)').order('submitted_at', { ascending: false }),
     ])
-    const dayList = (days ?? []).map((d: any) => ({ ...d, questions: d.questions ?? [] }))
+    const dayList = (days ?? []).map((d: any) => ({
+      ...d,
+      questions: (d.questions ?? []).map((q: any, i: number) =>
+        typeof q === 'string'
+          ? { id: String(i), type: 'text', text: q, required: true }
+          : { id: q.id ?? String(i), ...q }
+      ),
+    }))
     setProgramDays(dayList)
     setResponses((resp ?? []) as any)
     if (dayList.length > 0 && !selectedDay) {
@@ -67,13 +250,15 @@ export default function ExitTicketsPage() {
   async function handleSaveQuestions() {
     if (!selectedDay) return
     setSavingQuestions(true)
-    const cleaned = editQuestions.filter((q) => q.trim())
+    const cleaned = editQuestions.filter((q) => q.text.trim()).map((q) => ({
+      ...q,
+      options: q.options?.filter((o) => o.trim()),
+    }))
     await supabase.from('program_days').update({ questions: cleaned }).eq('id', selectedDay)
-    // Update local state
     setProgramDays((prev) => prev.map((d) => d.id === selectedDay ? { ...d, questions: cleaned } : d))
     setSavingQuestions(false)
     setSavedMsg('Saved!')
-    setTimeout(() => setSavedMsg(''), 2000)
+    setTimeout(() => setSavedMsg(''), 2500)
   }
 
   const activeDay = programDays.find((d) => d.id === selectedDay)
@@ -84,7 +269,7 @@ export default function ExitTicketsPage() {
       <div className="p-8">
         <div className="mb-8">
           <h1 className="text-3xl font-black" style={{ color: '#0D2137' }}>Exit Tickets</h1>
-          <p className="text-gray-500 mt-1 text-sm">View responses and edit questions per program day.</p>
+          <p className="text-gray-500 mt-1 text-sm">View student responses and edit questions per program day.</p>
         </div>
 
         {loading ? (
@@ -92,12 +277,11 @@ export default function ExitTicketsPage() {
         ) : programDays.length === 0 ? (
           <div className="text-center py-16 text-gray-300">
             <div className="text-5xl mb-4">📋</div>
-            <p className="font-semibold text-gray-400">No exit ticket days yet</p>
-            <p className="text-sm mt-1">Add program days first to manage exit tickets</p>
+            <p className="font-semibold text-gray-400">No program days yet</p>
           </div>
         ) : (
           <div className="flex gap-6">
-            {/* Day sidebar */}
+            {/* Sidebar */}
             <div className="w-52 flex-shrink-0 space-y-2">
               {programDays.map((day) => {
                 const count = responses.filter((r) => r.program_day_id === day.id).length
@@ -126,7 +310,7 @@ export default function ExitTicketsPage() {
                   </button>
                   <button onClick={() => setView('questions')}
                     className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${view === 'questions' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}>
-                    ✏️ Edit Questions
+                    ✏️ Edit Questions ({activeDay.questions.length})
                   </button>
                 </div>
 
@@ -152,52 +336,43 @@ export default function ExitTicketsPage() {
                               <span className="font-bold text-gray-800">{r.profiles?.name ?? '—'}</span>
                               <span className="text-xs text-gray-400 ml-2">{r.profiles?.email}</span>
                             </div>
-                            <span className="text-xs font-semibold text-blue-500">View →</span>
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs text-gray-400">
+                                {new Date(r.submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              <span className="text-xs font-semibold text-blue-500">View →</span>
+                            </div>
                           </div>
-                          {activeDay.questions.length > 0 && r.responses?.answers?.[0] && (
-                            <p className="text-sm text-gray-500 mt-2 truncate">
-                              {activeDay.questions[0]}: <span className="text-gray-700">{r.responses.answers[0]}</span>
-                            </p>
-                          )}
                         </div>
                       ))}
                     </div>
                   )
                 )}
 
-                {/* Questions edit view */}
+                {/* Questions editor */}
                 {view === 'questions' && (
-                  <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                    <p className="text-sm text-gray-500 mb-4">
-                      Edit the questions for this exit ticket. Students will see these questions at 3:00 PM on the day of the program.
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-500">
+                      Students will see these questions at 3:00 PM on the day of the program.
+                      Choose from star ratings, short/long answers, and choice questions.
                     </p>
-                    <div className="space-y-3 mb-4">
-                      {editQuestions.map((q, i) => (
-                        <div key={i} className="flex gap-2 items-center">
-                          <span className="text-sm font-bold text-gray-400 min-w-6">{i + 1}.</span>
-                          <input
-                            type="text"
-                            value={q}
-                            onChange={(e) => {
-                              const updated = [...editQuestions]
-                              updated[i] = e.target.value
-                              setEditQuestions(updated)
-                            }}
-                            placeholder={`Question ${i + 1}`}
-                            className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
-                          />
-                          <button onClick={() => setEditQuestions(editQuestions.filter((_, idx) => idx !== i))}
-                            className="text-gray-300 hover:text-red-400 text-lg px-1">✕</button>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <button onClick={() => setEditQuestions([...editQuestions, ''])}
-                        className="text-sm font-bold text-blue-500 hover:text-blue-700">
-                        + Add Question
-                      </button>
+
+                    {editQuestions.map((q, i) => (
+                      <QuestionEditor key={q.id} q={q}
+                        onChange={(updated) => setEditQuestions(editQuestions.map((x, idx) => idx === i ? updated : x))}
+                        onDelete={() => setEditQuestions(editQuestions.filter((_, idx) => idx !== i))}
+                      />
+                    ))}
+
+                    <button
+                      onClick={() => setEditQuestions([...editQuestions, newQuestion()])}
+                      className="w-full py-3 rounded-2xl border-2 border-dashed border-gray-200 text-sm font-bold text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors">
+                      + Add Question
+                    </button>
+
+                    <div className="flex items-center gap-4 pt-2">
                       <button onClick={handleSaveQuestions} disabled={savingQuestions}
-                        className="px-5 py-2 rounded-xl text-sm font-bold text-white"
+                        className="px-6 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-60"
                         style={{ backgroundColor: '#0D2137' }}>
                         {savingQuestions ? 'Saving...' : 'Save Questions'}
                       </button>
@@ -212,34 +387,8 @@ export default function ExitTicketsPage() {
 
         {/* Response detail modal */}
         {selectedResponse && activeDay && (
-          <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto pt-12">
-            <div className="bg-white rounded-2xl w-full max-w-xl shadow-xl mb-8">
-              <div className="flex items-center justify-between p-6 border-b border-gray-100">
-                <div>
-                  <h2 className="text-xl font-black" style={{ color: '#0D2137' }}>{selectedResponse.profiles?.name}</h2>
-                  <p className="text-sm text-gray-400">{activeDay.title} · {selectedResponse.profiles?.email}</p>
-                </div>
-                <button onClick={() => setSelectedResponse(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
-              </div>
-              <div className="p-6 space-y-5">
-                {activeDay.questions.length > 0 ? (
-                  activeDay.questions.map((question, i) => (
-                    <div key={i}>
-                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">{question}</p>
-                      <div className="bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-700">
-                        {selectedResponse.responses?.answers?.[i] ?? <span className="text-gray-300 italic">No answer</span>}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <pre className="text-xs text-gray-600 bg-gray-50 rounded-xl p-4 overflow-auto">
-                    {JSON.stringify(selectedResponse.responses, null, 2)}
-                  </pre>
-                )}
-                <p className="text-xs text-gray-400">Submitted {new Date(selectedResponse.submitted_at).toLocaleString()}</p>
-              </div>
-            </div>
-          </div>
+          <ResponseDetail r={selectedResponse} questions={activeDay.questions}
+            onClose={() => setSelectedResponse(null)} />
         )}
       </div>
     </AdminLayout>

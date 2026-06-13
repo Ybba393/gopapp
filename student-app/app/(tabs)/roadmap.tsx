@@ -243,7 +243,7 @@ export default function RoadmapScreen() {
                     {day.has_exit_ticket && canAccessExitTicket(day.date) ? (
                       <TouchableOpacity
                         style={[styles.actionBtn, styles.exitTicketBtn]}
-                        onPress={() => router.push('/exit-ticket/race-culture')}
+                        onPress={() => router.push(`/exit-ticket/${day.id}` as any)}
                       >
                         <Ionicons name="document-text-outline" size={14} color={colors.primaryMid} />
                         <Text style={styles.exitTicketText}>Exit Ticket</Text>

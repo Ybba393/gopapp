@@ -13,6 +13,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="change-password" />
         <Stack.Screen name="exit-ticket/race-culture" />
+        <Stack.Screen name="exit-ticket/[dayId]" />
       </Stack>
     </AuthProvider>
   );
