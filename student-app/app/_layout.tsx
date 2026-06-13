@@ -14,6 +14,7 @@ export default function RootLayout() {
         <Stack.Screen name="change-password" />
         <Stack.Screen name="exit-ticket/race-culture" />
         <Stack.Screen name="exit-ticket/[dayId]" />
+        <Stack.Screen name="forms/[formId]" />
       </Stack>
     </AuthProvider>
   );

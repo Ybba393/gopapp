@@ -10,10 +10,18 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/constants/colors';
 import type { CapstoneGroup, VolunteerLog, Attendance, Profile } from '@/lib/types';
+
+interface StandaloneForm {
+  id: string;
+  title: string;
+  description: string | null;
+  questions: any[];
+}
 
 const MISSION =
   'To build a community of young leaders who celebrate diversity and are dedicated to the elimination of discrimination in metropolitan Detroit. Our efforts are guided by the belief that building relationships among youth of many cultures and ethnicities results in stronger relationships, an appreciation of individual differences, and creates a valuable corps of future leaders.';
@@ -26,6 +34,8 @@ export default function DashboardScreen() {
   const [totalProgramDays, setTotalProgramDays] = useState(7);
   const [group, setGroup] = useState<CapstoneGroup | null>(null);
   const [groupMembers, setGroupMembers] = useState<Profile[]>([]);
+  const [forms, setForms] = useState<StandaloneForm[]>([]);
+  const [submittedFormIds, setSubmittedFormIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -81,6 +91,21 @@ export default function DashboardScreen() {
         .eq('cohort_id', profile.cohort_id);
       if (count != null) setTotalProgramDays(count);
     }
+
+    // Standalone forms
+    const { data: formData } = await supabase
+      .from('standalone_forms')
+      .select('id, title, description, questions')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
+    setForms(formData ?? []);
+
+    // Which forms has this student already submitted?
+    const { data: myResponses } = await supabase
+      .from('form_responses')
+      .select('form_id')
+      .eq('respondent_id', profile.id);
+    setSubmittedFormIds(new Set((myResponses ?? []).map((r: any) => r.form_id)));
   }
 
   useEffect(() => {
@@ -190,6 +215,43 @@ export default function DashboardScreen() {
             )}
           </View>
 
+          {/* Standalone forms */}
+          {forms.length > 0 && (
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="document-text" size={18} color={colors.accent} />
+                <Text style={styles.sectionTitle}>Forms</Text>
+              </View>
+              {forms.map((form) => {
+                const done = submittedFormIds.has(form.id);
+                return (
+                  <TouchableOpacity
+                    key={form.id}
+                    style={[styles.formRow, done && styles.formRowDone]}
+                    onPress={() => !done && router.push(`/forms/${form.id}` as any)}
+                    disabled={done}
+                    activeOpacity={done ? 1 : 0.7}
+                  >
+                    <View style={styles.formRowLeft}>
+                      <Text style={[styles.formRowTitle, done && styles.formRowTitleDone]} numberOfLines={2}>
+                        {form.title}
+                      </Text>
+                      <Text style={styles.formRowSub}>{form.questions?.length ?? 0} questions</Text>
+                    </View>
+                    {done ? (
+                      <View style={styles.formDoneBadge}>
+                        <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+                        <Text style={styles.formDoneText}>Done</Text>
+                      </View>
+                    ) : (
+                      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
           {/* Mission statement */}
           <View style={styles.missionCard}>
             <Text style={styles.missionLabel}>OUR MISSION</Text>
@@ -235,7 +297,6 @@ function QuickLink({
   label: string;
   route: string;
 }) {
-  const { router } = require('expo-router');
   return (
     <TouchableOpacity style={styles.quickLink} onPress={() => router.push(route)}>
       <View style={styles.quickLinkIcon}>
@@ -421,6 +482,50 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.textPrimary,
+  },
+  formRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+    gap: 12,
+  },
+  formRowDone: {
+    opacity: 0.6,
+  },
+  formRowLeft: {
+    flex: 1,
+  },
+  formRowTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    lineHeight: 19,
+  },
+  formRowTitleDone: {
+    color: colors.textMuted,
+  },
+  formRowSub: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  formDoneBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.successLight,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: colors.success,
+  },
+  formDoneText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.success,
   },
   missionCard: {
     backgroundColor: colors.primary,

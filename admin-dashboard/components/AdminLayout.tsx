@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: '/program-days', icon: '📅', label: 'Program Days' },
   { href: '/attendance', icon: '✅', label: 'Attendance' },
   { href: '/exit-tickets', icon: '📋', label: 'Exit Tickets' },
+  { href: '/forms', icon: '📄', label: 'Forms' },
   { href: '/cohorts', icon: '🎓', label: 'Cohorts' },
   { href: '/messages', icon: '💬', label: 'Messages' },
 ]
