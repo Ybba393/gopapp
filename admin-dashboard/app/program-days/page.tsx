@@ -12,20 +12,15 @@ interface ProgramDay {
   date: string
   has_exit_ticket: boolean
   sort_order: number
+  questions: string[]
   cohort?: { name: string }
-  attendance_count?: number
 }
 
-interface Cohort {
-  id: string
-  name: string
-  year: string
-}
+interface Cohort { id: string; name: string; year: string; is_active?: boolean }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 function formatDate(d: string) {
   const dt = new Date(d + 'T12:00:00')
-  return `${MONTHS[dt.getMonth()]} ${dt.getDate()}, ${dt.getFullYear()}`
+  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 export default function ProgramDaysPage() {
@@ -36,32 +31,32 @@ export default function ProgramDaysPage() {
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
 
-  // Form
   const [form, setForm] = useState({
     cohort_id: '', title: '', description: '', date: '', has_exit_ticket: false, sort_order: 1,
   })
   const [creating, setCreating] = useState(false)
 
+  // Edit questions modal
+  const [editingDay, setEditingDay] = useState<ProgramDay | null>(null)
+  const [editQuestions, setEditQuestions] = useState<string[]>([])
+  const [savingQuestions, setSavingQuestions] = useState(false)
+
   async function loadData() {
     const [{ data: cohortData }, { data: dayData }] = await Promise.all([
       supabase.from('cohorts').select('*').order('year', { ascending: false }),
-      supabase
-        .from('program_days')
-        .select('*, cohort:cohorts(name)')
-        .order('sort_order', { ascending: true }),
+      supabase.from('program_days').select('*, cohort:cohorts(name)').order('sort_order'),
     ])
     setCohorts(cohortData ?? [])
-    setDays(dayData ?? [])
+    setDays((dayData ?? []).map((d: any) => ({ ...d, questions: d.questions ?? [] })))
     if (cohortData?.length && !filterCohort) {
       const active = cohortData.find((c: any) => c.is_active)
-      setFilterCohort(active?.id ?? cohortData[0].id)
-      setForm((f) => ({ ...f, cohort_id: active?.id ?? cohortData[0].id }))
+      const id = active?.id ?? cohortData[0].id
+      setFilterCohort(id)
+      setForm((f) => ({ ...f, cohort_id: id }))
     }
   }
 
-  useEffect(() => {
-    loadData().finally(() => setLoading(false))
-  }, [])
+  useEffect(() => { loadData().finally(() => setLoading(false)) }, [])
 
   async function handleCreate() {
     if (!form.cohort_id || !form.title || !form.date) return
@@ -73,6 +68,7 @@ export default function ProgramDaysPage() {
       date: form.date,
       has_exit_ticket: form.has_exit_ticket,
       sort_order: form.sort_order,
+      questions: [],
     })
     setCreating(false)
     setShowCreate(false)
@@ -86,6 +82,21 @@ export default function ProgramDaysPage() {
     await loadData()
   }
 
+  async function handleSaveQuestions() {
+    if (!editingDay) return
+    setSavingQuestions(true)
+    const cleaned = editQuestions.filter((q) => q.trim())
+    await supabase.from('program_days').update({ questions: cleaned }).eq('id', editingDay.id)
+    setSavingQuestions(false)
+    setEditingDay(null)
+    await loadData()
+  }
+
+  function openEditQuestions(day: ProgramDay) {
+    setEditingDay(day)
+    setEditQuestions(day.questions.length > 0 ? [...day.questions] : [''])
+  }
+
   const filtered = days.filter((d) => !filterCohort || d.cohort_id === filterCohort)
 
   return (
@@ -94,20 +105,17 @@ export default function ProgramDaysPage() {
         <div className="flex justify-between items-start mb-8">
           <div>
             <h1 className="text-3xl font-black" style={{ color: '#0D2137' }}>Program Days</h1>
-            <p className="text-gray-500 mt-1 text-sm">Manage program day dates and descriptions per cohort.</p>
+            <p className="text-gray-500 mt-1 text-sm">Manage program days and exit ticket questions.</p>
           </div>
-          <button onClick={() => setShowCreate(true)} className="px-5 py-2.5 rounded-xl font-bold text-sm text-white" style={{ backgroundColor: '#0D2137' }}>
+          <button onClick={() => setShowCreate(true)}
+            className="px-5 py-2.5 rounded-xl font-bold text-sm text-white" style={{ backgroundColor: '#0D2137' }}>
             + Add Day
           </button>
         </div>
 
-        {/* Cohort filter */}
         <div className="mb-5">
-          <select
-            value={filterCohort}
-            onChange={(e) => setFilterCohort(e.target.value)}
-            className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
-          >
+          <select value={filterCohort} onChange={(e) => setFilterCohort(e.target.value)}
+            className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400">
             <option value="">All Cohorts</option>
             {cohorts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
@@ -122,35 +130,54 @@ export default function ProgramDaysPage() {
             </div>
           ) : (
             filtered.map((day) => (
-              <div key={day.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="text-center min-w-14">
-                    <div className="text-xs font-bold text-gray-400 uppercase">
-                      {new Date(day.date + 'T12:00:00').toLocaleString('en', { month: 'short' })}
+              <div key={day.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="text-center min-w-14">
+                      <div className="text-xs font-bold text-gray-400 uppercase">
+                        {new Date(day.date + 'T12:00:00').toLocaleString('en', { month: 'short' })}
+                      </div>
+                      <div className="text-2xl font-black" style={{ color: '#0D2137' }}>
+                        {new Date(day.date + 'T12:00:00').getDate()}
+                      </div>
+                      <div className="text-xs text-gray-300">{new Date(day.date + 'T12:00:00').getFullYear()}</div>
                     </div>
-                    <div className="text-2xl font-black" style={{ color: '#0D2137' }}>
-                      {new Date(day.date + 'T12:00:00').getDate()}
-                    </div>
-                    <div className="text-xs text-gray-300">
-                      {new Date(day.date + 'T12:00:00').getFullYear()}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-base" style={{ color: '#0D2137' }}>{day.title}</span>
+                        {day.has_exit_ticket && (
+                          <span className="px-2 py-0.5 bg-blue-100 text-blue-600 rounded-full text-xs font-bold">
+                            Exit Ticket · {day.questions.length} question{day.questions.length !== 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
+                      {day.description && <p className="text-sm text-gray-500 mt-0.5">{day.description}</p>}
+                      <p className="text-xs text-gray-300 mt-1">{(day.cohort as any)?.name}</p>
                     </div>
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-black text-base" style={{ color: '#0D2137' }}>{day.title}</span>
-                      {day.has_exit_ticket && (
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-600 rounded-full text-xs font-bold">Exit Ticket</span>
-                      )}
-                    </div>
-                    {day.description && (
-                      <p className="text-sm text-gray-500 mt-0.5 leading-tight">{day.description}</p>
+
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    {day.has_exit_ticket && (
+                      <button onClick={() => openEditQuestions(day)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold border border-blue-200 text-blue-600 hover:bg-blue-50">
+                        ✏️ Edit Questions
+                      </button>
                     )}
-                    <p className="text-xs text-gray-300 mt-1">{(day.cohort as any)?.name}</p>
+                    <button onClick={() => handleDelete(day.id)}
+                      className="text-xs text-red-300 hover:text-red-500 font-semibold">Delete</button>
                   </div>
                 </div>
-                <button onClick={() => handleDelete(day.id)} className="text-xs text-red-300 hover:text-red-500 font-semibold flex-shrink-0">
-                  Delete
-                </button>
+
+                {/* Show questions preview */}
+                {day.has_exit_ticket && day.questions.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-gray-50 space-y-1">
+                    {day.questions.map((q, i) => (
+                      <p key={i} className="text-xs text-gray-500">
+                        <span className="font-bold text-gray-400">{i + 1}.</span> {q}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -172,19 +199,17 @@ export default function ProgramDaysPage() {
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1.5">TITLE</label>
                   <input type="text" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
-                    placeholder="e.g. Break the Ice"
+                    placeholder="e.g. Race & Culture Day"
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1.5">DESCRIPTION</label>
                   <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    placeholder="Brief description of the day..."
-                    rows={3}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 resize-none" />
+                    rows={3} className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 resize-none" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">DATE (YYYY-MM-DD)</label>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">DATE</label>
                     <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
                       className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400" />
                   </div>
@@ -205,6 +230,55 @@ export default function ProgramDaysPage() {
                 <button onClick={handleCreate} disabled={creating}
                   className="flex-1 py-3 rounded-xl text-sm font-bold text-white" style={{ backgroundColor: '#0D2137' }}>
                   {creating ? 'Creating...' : 'Create'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit questions modal */}
+        {editingDay && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl w-full max-w-lg p-8 shadow-xl my-8">
+              <h2 className="text-xl font-black mb-1" style={{ color: '#0D2137' }}>Exit Ticket Questions</h2>
+              <p className="text-sm text-gray-400 mb-6">{editingDay.title} · {formatDate(editingDay.date)}</p>
+
+              <div className="space-y-3 mb-4">
+                {editQuestions.map((q, i) => (
+                  <div key={i} className="flex gap-2 items-start">
+                    <span className="text-sm font-bold text-gray-400 mt-3 min-w-6">{i + 1}.</span>
+                    <input
+                      type="text"
+                      value={q}
+                      onChange={(e) => {
+                        const updated = [...editQuestions]
+                        updated[i] = e.target.value
+                        setEditQuestions(updated)
+                      }}
+                      placeholder={`Question ${i + 1}`}
+                      className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+                    />
+                    <button
+                      onClick={() => setEditQuestions(editQuestions.filter((_, idx) => idx !== i))}
+                      className="mt-2.5 text-gray-300 hover:text-red-400 text-lg"
+                    >✕</button>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setEditQuestions([...editQuestions, ''])}
+                className="text-sm font-bold text-blue-500 hover:text-blue-700 mb-6"
+              >
+                + Add Question
+              </button>
+
+              <div className="flex gap-3">
+                <button onClick={() => setEditingDay(null)}
+                  className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600">Cancel</button>
+                <button onClick={handleSaveQuestions} disabled={savingQuestions}
+                  className="flex-1 py-3 rounded-xl text-sm font-bold text-white" style={{ backgroundColor: '#0D2137' }}>
+                  {savingQuestions ? 'Saving...' : 'Save Questions'}
                 </button>
               </div>
             </div>

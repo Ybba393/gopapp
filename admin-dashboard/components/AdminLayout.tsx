@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: '/program-days', icon: '📅', label: 'Program Days' },
   { href: '/exit-tickets', icon: '📋', label: 'Exit Tickets' },
   { href: '/cohorts', icon: '🎓', label: 'Cohorts' },
+  { href: '/messages', icon: '💬', label: 'Messages' },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

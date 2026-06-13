@@ -41,6 +41,13 @@ function canCheckIn(dateStr: string): boolean {
   return now.getHours() >= 9;
 }
 
+function canAccessExitTicket(dateStr: string): boolean {
+  const now = new Date();
+  const dayStr = now.toISOString().split('T')[0];
+  if (dateStr !== dayStr) return false;
+  return now.getHours() >= 15; // 3:00 PM
+}
+
 export default function RoadmapScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
@@ -233,7 +240,7 @@ export default function RoadmapScreen() {
                     )}
 
                     {/* Exit Ticket button */}
-                    {day.has_exit_ticket ? (
+                    {day.has_exit_ticket && canAccessExitTicket(day.date) ? (
                       <TouchableOpacity
                         style={[styles.actionBtn, styles.exitTicketBtn]}
                         onPress={() => router.push('/exit-ticket/race-culture')}
@@ -241,12 +248,17 @@ export default function RoadmapScreen() {
                         <Ionicons name="document-text-outline" size={14} color={colors.primaryMid} />
                         <Text style={styles.exitTicketText}>Exit Ticket</Text>
                       </TouchableOpacity>
-                    ) : (
+                    ) : day.has_exit_ticket && isToday ? (
                       <View style={[styles.actionBtn, styles.comingSoonBtn]}>
                         <Ionicons name="time-outline" size={14} color={colors.textMuted} />
-                        <Text style={styles.comingSoonText}>Coming Soon</Text>
+                        <Text style={styles.comingSoonText}>Opens at 3:00 PM</Text>
                       </View>
-                    )}
+                    ) : day.has_exit_ticket && isPast ? (
+                      <View style={[styles.actionBtn, styles.comingSoonBtn]}>
+                        <Ionicons name="checkmark-circle-outline" size={14} color={colors.textMuted} />
+                        <Text style={styles.comingSoonText}>Closed</Text>
+                      </View>
+                    ) : null}
                   </View>
                 </View>
               </View>

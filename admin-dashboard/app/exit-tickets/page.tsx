@@ -4,189 +4,239 @@ import { useEffect, useState } from 'react'
 import AdminLayout from '@/components/AdminLayout'
 import { createClient } from '@/lib/supabase-client'
 
-interface Response {
+interface TicketResponse {
   id: string
   submitted_at: string
   responses: Record<string, any>
-  profile: { name: string; email: string } | null
-  program_day: { title: string; date: string } | null
+  student_id: string
+  program_day_id: string
+  profiles: { name: string; email: string } | null
 }
 
-const RATING_LABELS: Record<number, string> = { 1: 'Poor', 2: 'Fair', 3: 'Good', 4: 'Very Good', 5: 'Excellent' }
+interface ProgramDay {
+  id: string
+  title: string
+  date: string
+  has_exit_ticket: boolean
+  questions: string[]
+}
+
+function formatDate(d: string) {
+  return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
 
 export default function ExitTicketsPage() {
   const supabase = createClient()
-  const [responses, setResponses] = useState<Response[]>([])
+  const [programDays, setProgramDays] = useState<ProgramDay[]>([])
+  const [responses, setResponses] = useState<TicketResponse[]>([])
   const [loading, setLoading] = useState(true)
-  const [selected, setSelected] = useState<Response | null>(null)
-  const [search, setSearch] = useState('')
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  const [selectedResponse, setSelectedResponse] = useState<TicketResponse | null>(null)
+  const [view, setView] = useState<'responses' | 'questions'>('responses')
 
-  useEffect(() => {
-    supabase
-      .from('exit_ticket_responses')
-      .select('*, profile:profiles(name, email), program_day:program_days(title, date)')
-      .order('submitted_at', { ascending: false })
-      .then(({ data }) => {
-        setResponses(data ?? [])
-        setLoading(false)
-      })
-  }, [])
+  // Question editing
+  const [editQuestions, setEditQuestions] = useState<string[]>([])
+  const [savingQuestions, setSavingQuestions] = useState(false)
+  const [savedMsg, setSavedMsg] = useState('')
 
-  const filtered = responses.filter(
-    (r) =>
-      (r.profile?.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
-      (r.profile?.email ?? '').toLowerCase().includes(search.toLowerCase())
-  )
+  async function load() {
+    const [{ data: days }, { data: resp }] = await Promise.all([
+      supabase.from('program_days').select('id, title, date, has_exit_ticket, questions').eq('has_exit_ticket', true).order('sort_order'),
+      supabase.from('exit_ticket_responses').select('*, profiles(name, email)').order('submitted_at', { ascending: false }),
+    ])
+    const dayList = (days ?? []).map((d: any) => ({ ...d, questions: d.questions ?? [] }))
+    setProgramDays(dayList)
+    setResponses((resp ?? []) as any)
+    if (dayList.length > 0 && !selectedDay) {
+      setSelectedDay(dayList[0].id)
+      setEditQuestions(dayList[0].questions)
+    }
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [])
+
+  function selectDay(id: string) {
+    setSelectedDay(id)
+    setSelectedResponse(null)
+    setSavedMsg('')
+    const day = programDays.find((d) => d.id === id)
+    setEditQuestions(day?.questions ?? [])
+  }
+
+  async function handleSaveQuestions() {
+    if (!selectedDay) return
+    setSavingQuestions(true)
+    const cleaned = editQuestions.filter((q) => q.trim())
+    await supabase.from('program_days').update({ questions: cleaned }).eq('id', selectedDay)
+    // Update local state
+    setProgramDays((prev) => prev.map((d) => d.id === selectedDay ? { ...d, questions: cleaned } : d))
+    setSavingQuestions(false)
+    setSavedMsg('Saved!')
+    setTimeout(() => setSavedMsg(''), 2000)
+  }
+
+  const activeDay = programDays.find((d) => d.id === selectedDay)
+  const dayResponses = responses.filter((r) => r.program_day_id === selectedDay)
 
   return (
     <AdminLayout>
       <div className="p-8">
         <div className="mb-8">
           <h1 className="text-3xl font-black" style={{ color: '#0D2137' }}>Exit Tickets</h1>
-          <p className="text-gray-500 mt-1 text-sm">View all student exit ticket submissions.</p>
+          <p className="text-gray-500 mt-1 text-sm">View responses and edit questions per program day.</p>
         </div>
 
-        <div className="mb-4">
-          <input
-            type="text"
-            placeholder="Search by name or email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full max-w-sm border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
-          />
-        </div>
+        {loading ? (
+          <div className="text-center py-16 text-gray-400">Loading...</div>
+        ) : programDays.length === 0 ? (
+          <div className="text-center py-16 text-gray-300">
+            <div className="text-5xl mb-4">📋</div>
+            <p className="font-semibold text-gray-400">No exit ticket days yet</p>
+            <p className="text-sm mt-1">Enable "Has Exit Ticket" on a program day to get started</p>
+          </div>
+        ) : (
+          <div className="flex gap-6">
+            {/* Day sidebar */}
+            <div className="w-52 flex-shrink-0 space-y-2">
+              {programDays.map((day) => {
+                const count = responses.filter((r) => r.program_day_id === day.id).length
+                const isActive = selectedDay === day.id
+                return (
+                  <button key={day.id} onClick={() => selectDay(day.id)}
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-semibold transition-colors ${isActive ? 'text-white' : 'bg-white text-gray-600 border border-gray-100 hover:bg-gray-50'}`}
+                    style={isActive ? { backgroundColor: '#0D2137' } : {}}>
+                    <div>{day.title}</div>
+                    <div className={`text-xs mt-0.5 ${isActive ? 'text-white/60' : 'text-gray-400'}`}>
+                      {formatDate(day.date)} · {count} response{count !== 1 ? 's' : ''}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          {loading ? (
-            <div className="p-12 text-center text-gray-400">Loading...</div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left px-6 py-3 text-gray-400 font-semibold text-xs">STUDENT</th>
-                  <th className="text-left px-6 py-3 text-gray-400 font-semibold text-xs">PROGRAM DAY</th>
-                  <th className="text-left px-6 py-3 text-gray-400 font-semibold text-xs">OVERALL RATING</th>
-                  <th className="text-left px-6 py-3 text-gray-400 font-semibold text-xs">SUBMITTED</th>
-                  <th className="px-6 py-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-gray-400">
-                      No exit tickets submitted yet.
-                    </td>
-                  </tr>
-                ) : (
-                  filtered.map((r) => (
-                    <tr key={r.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
-                      <td className="px-6 py-4">
-                        <div className="font-semibold text-gray-800">{r.profile?.name ?? '—'}</div>
-                        <div className="text-xs text-gray-400">{r.profile?.email}</div>
-                      </td>
-                      <td className="px-6 py-4 text-gray-600">{r.program_day?.title ?? '—'}</td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-yellow-400">{'★'.repeat(r.responses.overall_rating ?? 0)}</span>
-                          <span className="text-gray-300">{'★'.repeat(5 - (r.responses.overall_rating ?? 0))}</span>
-                          <span className="text-xs text-gray-400 ml-1">
-                            {RATING_LABELS[r.responses.overall_rating] ?? ''}
-                          </span>
+            {/* Main panel */}
+            {activeDay && (
+              <div className="flex-1 min-w-0">
+                {/* Toggle */}
+                <div className="flex items-center gap-1 mb-5 bg-gray-100 p-1 rounded-xl w-fit">
+                  <button onClick={() => setView('responses')}
+                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${view === 'responses' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}>
+                    Responses ({dayResponses.length})
+                  </button>
+                  <button onClick={() => setView('questions')}
+                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${view === 'questions' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}>
+                    ✏️ Edit Questions
+                  </button>
+                </div>
+
+                <div className="mb-4">
+                  <h2 className="text-lg font-black" style={{ color: '#0D2137' }}>{activeDay.title}</h2>
+                  <p className="text-sm text-gray-400">{formatDate(activeDay.date)}</p>
+                </div>
+
+                {/* Responses view */}
+                {view === 'responses' && (
+                  dayResponses.length === 0 ? (
+                    <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center text-gray-400">
+                      No submissions yet for this program day.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {dayResponses.map((r) => (
+                        <div key={r.id}
+                          className="bg-white rounded-2xl border border-gray-100 p-5 cursor-pointer hover:border-blue-200 transition-colors"
+                          onClick={() => setSelectedResponse(r)}>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-gray-800">{r.profiles?.name ?? '—'}</span>
+                              <span className="text-xs text-gray-400 ml-2">{r.profiles?.email}</span>
+                            </div>
+                            <span className="text-xs font-semibold text-blue-500">View →</span>
+                          </div>
+                          {activeDay.questions.length > 0 && r.responses?.answers?.[0] && (
+                            <p className="text-sm text-gray-500 mt-2 truncate">
+                              {activeDay.questions[0]}: <span className="text-gray-700">{r.responses.answers[0]}</span>
+                            </p>
+                          )}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 text-gray-400 text-xs">
-                        {new Date(r.submitted_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => setSelected(r)}
-                          className="text-xs font-semibold text-blue-500 hover:text-blue-700"
-                        >
-                          View →
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                      ))}
+                    </div>
+                  )
                 )}
-              </tbody>
-            </table>
-          )}
-        </div>
 
-        {/* Detail modal */}
-        {selected && (
+                {/* Questions edit view */}
+                {view === 'questions' && (
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                    <p className="text-sm text-gray-500 mb-4">
+                      Edit the questions for this exit ticket. Students will see these questions at 3:00 PM on the day of the program.
+                    </p>
+                    <div className="space-y-3 mb-4">
+                      {editQuestions.map((q, i) => (
+                        <div key={i} className="flex gap-2 items-center">
+                          <span className="text-sm font-bold text-gray-400 min-w-6">{i + 1}.</span>
+                          <input
+                            type="text"
+                            value={q}
+                            onChange={(e) => {
+                              const updated = [...editQuestions]
+                              updated[i] = e.target.value
+                              setEditQuestions(updated)
+                            }}
+                            placeholder={`Question ${i + 1}`}
+                            className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+                          />
+                          <button onClick={() => setEditQuestions(editQuestions.filter((_, idx) => idx !== i))}
+                            className="text-gray-300 hover:text-red-400 text-lg px-1">✕</button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <button onClick={() => setEditQuestions([...editQuestions, ''])}
+                        className="text-sm font-bold text-blue-500 hover:text-blue-700">
+                        + Add Question
+                      </button>
+                      <button onClick={handleSaveQuestions} disabled={savingQuestions}
+                        className="px-5 py-2 rounded-xl text-sm font-bold text-white"
+                        style={{ backgroundColor: '#0D2137' }}>
+                        {savingQuestions ? 'Saving...' : 'Save Questions'}
+                      </button>
+                      {savedMsg && <span className="text-sm text-green-600 font-semibold">{savedMsg}</span>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Response detail modal */}
+        {selectedResponse && activeDay && (
           <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto pt-12">
             <div className="bg-white rounded-2xl w-full max-w-xl shadow-xl mb-8">
               <div className="flex items-center justify-between p-6 border-b border-gray-100">
                 <div>
-                  <h2 className="text-xl font-black" style={{ color: '#0D2137' }}>
-                    {selected.profile?.name}
-                  </h2>
-                  <p className="text-sm text-gray-400">{selected.program_day?.title} · {selected.profile?.email}</p>
+                  <h2 className="text-xl font-black" style={{ color: '#0D2137' }}>{selectedResponse.profiles?.name}</h2>
+                  <p className="text-sm text-gray-400">{activeDay.title} · {selectedResponse.profiles?.email}</p>
                 </div>
-                <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+                <button onClick={() => setSelectedResponse(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
               </div>
-
-              <div className="p-6 space-y-6 text-sm">
-                {/* Ratings */}
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { label: 'Breakfast', val: selected.responses.breakfast_rating },
-                    { label: 'Lunch', val: selected.responses.lunch_rating },
-                    { label: 'Overall', val: selected.responses.overall_rating },
-                  ].map((item) => (
-                    <div key={item.label} className="bg-gray-50 rounded-xl p-3 text-center">
-                      <div className="text-2xl font-black text-yellow-400">{item.val}/5</div>
-                      <div className="text-xs text-gray-500 mt-1">{item.label}</div>
+              <div className="p-6 space-y-5">
+                {activeDay.questions.length > 0 ? (
+                  activeDay.questions.map((question, i) => (
+                    <div key={i}>
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">{question}</p>
+                      <div className="bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-700">
+                        {selectedResponse.responses?.answers?.[i] ?? <span className="text-gray-300 italic">No answer</span>}
+                      </div>
                     </div>
-                  ))}
-                </div>
-
-                {/* Enjoyed aspects */}
-                {selected.responses.enjoyed_aspects?.length > 0 && (
-                  <div>
-                    <div className="font-semibold text-gray-500 text-xs uppercase tracking-wide mb-2">Enjoyed Most</div>
-                    <div className="flex flex-wrap gap-2">
-                      {selected.responses.enjoyed_aspects.map((a: string) => (
-                        <span key={a} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-semibold">{a}</span>
-                      ))}
-                    </div>
-                  </div>
+                  ))
+                ) : (
+                  <pre className="text-xs text-gray-600 bg-gray-50 rounded-xl p-4 overflow-auto">
+                    {JSON.stringify(selectedResponse.responses, null, 2)}
+                  </pre>
                 )}
-
-                {/* Better understanding */}
-                <div>
-                  <div className="font-semibold text-gray-500 text-xs uppercase tracking-wide mb-1">Better Understanding of Identity/Culture/Power?</div>
-                  <div className="text-gray-700 font-medium">
-                    {{ yes: 'Yes, definitely', somewhat: 'Somewhat', not_yet: 'Not yet' }[selected.responses.better_understanding as string] ?? '—'}
-                  </div>
-                </div>
-
-                {/* Takeaways */}
-                <div>
-                  <div className="font-semibold text-gray-500 text-xs uppercase tracking-wide mb-1">Major Takeaways</div>
-                  <div className="text-gray-700 bg-gray-50 rounded-xl p-3 leading-relaxed">{selected.responses.major_takeaways || '—'}</div>
-                </div>
-
-                {/* Comments */}
-                {selected.responses.additional_comments && (
-                  <div>
-                    <div className="font-semibold text-gray-500 text-xs uppercase tracking-wide mb-1">Additional Comments</div>
-                    <div className="text-gray-700 bg-gray-50 rounded-xl p-3 leading-relaxed">{selected.responses.additional_comments}</div>
-                  </div>
-                )}
-
-                {/* Critical issues */}
-                {selected.responses.critical_issues?.length > 0 && (
-                  <div>
-                    <div className="font-semibold text-gray-500 text-xs uppercase tracking-wide mb-2">Top Critical Issues</div>
-                    <div className="flex flex-wrap gap-2">
-                      {selected.responses.critical_issues.map((issue: string) => (
-                        <span key={issue} className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-semibold border border-amber-200">{issue}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <p className="text-xs text-gray-400">Submitted {new Date(selectedResponse.submitted_at).toLocaleString()}</p>
               </div>
             </div>
           </div>
