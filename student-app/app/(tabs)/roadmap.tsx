@@ -53,6 +53,7 @@ export default function RoadmapScreen() {
   const { profile } = useAuth();
   const [programDays, setProgramDays] = useState<ProgramDay[]>([]);
   const [attendanceMap, setAttendanceMap] = useState<Record<string, Attendance>>({});
+  const [exitTicketDoneSet, setExitTicketDoneSet] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
@@ -78,6 +79,13 @@ export default function RoadmapScreen() {
       map[a.program_day_id] = a;
     }
     setAttendanceMap(map);
+
+    // Exit ticket completions
+    const { data: exits } = await supabase
+      .from('exit_ticket_responses')
+      .select('program_day_id')
+      .eq('student_id', profile.id);
+    setExitTicketDoneSet(new Set((exits ?? []).map((e: any) => e.program_day_id)));
   }
 
   useEffect(() => {
@@ -240,7 +248,12 @@ export default function RoadmapScreen() {
                     )}
 
                     {/* Exit Ticket button */}
-                    {day.has_exit_ticket && canAccessExitTicket(day.date) ? (
+                    {day.has_exit_ticket && exitTicketDoneSet.has(day.id) ? (
+                      <View style={styles.checkedInBadge}>
+                        <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+                        <Text style={styles.checkedInText}>Exit Ticket Done</Text>
+                      </View>
+                    ) : day.has_exit_ticket && canAccessExitTicket(day.date) ? (
                       <TouchableOpacity
                         style={[styles.actionBtn, styles.exitTicketBtn]}
                         onPress={() => router.push(`/exit-ticket/${day.id}` as any)}
@@ -255,7 +268,7 @@ export default function RoadmapScreen() {
                       </View>
                     ) : day.has_exit_ticket && isPast ? (
                       <View style={[styles.actionBtn, styles.comingSoonBtn]}>
-                        <Ionicons name="checkmark-circle-outline" size={14} color={colors.textMuted} />
+                        <Ionicons name="document-text-outline" size={14} color={colors.textMuted} />
                         <Text style={styles.comingSoonText}>Closed</Text>
                       </View>
                     ) : null}
