@@ -190,18 +190,6 @@ export default function DashboardScreen() {
             )}
           </View>
 
-          {/* Quick links */}
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="flash" size={18} color={colors.accent} />
-              <Text style={styles.sectionTitle}>Quick Actions</Text>
-            </View>
-            <View style={styles.quickLinks}>
-              <QuickLink icon="time-outline" label="Log Hours" route="/(tabs)/hours" />
-              <QuickLink icon="calendar-outline" label="Program Days" route="/(tabs)/roadmap" />
-            </View>
-          </View>
-
           {/* Mission statement */}
           <View style={styles.missionCard}>
             <Text style={styles.missionLabel}>OUR MISSION</Text>

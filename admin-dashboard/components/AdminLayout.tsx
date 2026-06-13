@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: '/students', icon: '👥', label: 'Roster' },
   { href: '/groups', icon: '🎯', label: 'Capstone Groups' },
   { href: '/program-days', icon: '📅', label: 'Program Days' },
+  { href: '/attendance', icon: '✅', label: 'Attendance' },
   { href: '/exit-tickets', icon: '📋', label: 'Exit Tickets' },
   { href: '/cohorts', icon: '🎓', label: 'Cohorts' },
   { href: '/messages', icon: '💬', label: 'Messages' },
