@@ -29,6 +29,7 @@ export default function ProgramDaysPage() {
     cohort_id: '', title: '', description: '', date: '', sort_order: 1,
   })
   const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState('')
 
   async function loadData() {
     const [{ data: cohortData }, { data: dayData }] = await Promise.all([
@@ -48,18 +49,25 @@ export default function ProgramDaysPage() {
   useEffect(() => { loadData().finally(() => setLoading(false)) }, [])
 
   async function handleCreate() {
-    if (!form.cohort_id || !form.title || !form.date) return
+    setCreateError('')
+    if (!form.cohort_id) { setCreateError('Please select a cohort.'); return }
+    if (!form.title.trim()) { setCreateError('Please enter a title.'); return }
+    if (!form.date) { setCreateError('Please select a date.'); return }
     setCreating(true)
-    await supabase.from('program_days').insert({
+    const { error } = await supabase.from('program_days').insert({
       cohort_id: form.cohort_id,
       title: form.title.trim(),
       description: form.description.trim() || null,
       date: form.date,
       has_exit_ticket: true,
-      sort_order: form.sort_order,
+      sort_order: Number(form.sort_order) || 1,
       questions: [],
     })
     setCreating(false)
+    if (error) {
+      setCreateError('Error: ' + error.message)
+      return
+    }
     setShowCreate(false)
     setForm({ cohort_id: filterCohort, title: '', description: '', date: '', sort_order: 1 })
     await loadData()
@@ -145,6 +153,7 @@ export default function ProgramDaysPage() {
                   <label className="block text-xs font-semibold text-gray-500 mb-1.5">COHORT</label>
                   <select value={form.cohort_id} onChange={(e) => setForm({ ...form, cohort_id: e.target.value })}
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400">
+                    <option value="">— Select cohort —</option>
                     {cohorts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
@@ -175,8 +184,12 @@ export default function ProgramDaysPage() {
                   ✅ Exit tickets are included on every day. Edit questions in the Exit Tickets tab.
                 </p>
               </div>
-              <div className="flex gap-3 mt-6">
-                <button onClick={() => setShowCreate(false)} className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600">Cancel</button>
+              {createError && (
+                <p className="mt-4 text-sm text-red-600 bg-red-50 rounded-xl px-4 py-3">{createError}</p>
+              )}
+              <div className="flex gap-3 mt-4">
+                <button onClick={() => { setShowCreate(false); setCreateError('') }}
+                  className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600">Cancel</button>
                 <button onClick={handleCreate} disabled={creating}
                   className="flex-1 py-3 rounded-xl text-sm font-bold text-white" style={{ backgroundColor: '#0D2137' }}>
                   {creating ? 'Creating...' : 'Create'}
