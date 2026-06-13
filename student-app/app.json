@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "Generation of Promise",
+    "slug": "gop-student-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0D2137"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "org.generationofpromise.app",
+      "buildNumber": "1"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0D2137"
+      },
+      "package": "org.generationofpromise.app"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "scheme": "gopapp",
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-font",
+      "expo-splash-screen",
+      "expo-status-bar"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

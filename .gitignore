@@ -1,0 +1,12 @@
+node_modules/
+.next/
+.DS_Store
+admin-dashboard/.next/
+admin-dashboard/node_modules/
+student-app/.next/
+student-app/node_modules/
+node_modules/
+.expo/
+*.env.local
+*.env
+
