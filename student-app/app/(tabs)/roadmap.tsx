@@ -17,6 +17,12 @@ import { supabase } from '@/lib/supabase';
 import { colors } from '@/constants/colors';
 import type { ProgramDay, Attendance } from '@/lib/types';
 
+interface StandaloneForm {
+  id: string;
+  title: string;
+  opens_at: string | null;
+}
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -54,6 +60,8 @@ export default function RoadmapScreen() {
   const [programDays, setProgramDays] = useState<ProgramDay[]>([]);
   const [attendanceMap, setAttendanceMap] = useState<Record<string, Attendance>>({});
   const [exitTicketDoneSet, setExitTicketDoneSet] = useState<Set<string>>(new Set());
+  const [standaloneForms, setStandaloneForms] = useState<StandaloneForm[]>([]);
+  const [submittedFormIds, setSubmittedFormIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
@@ -86,6 +94,21 @@ export default function RoadmapScreen() {
       .select('program_day_id')
       .eq('student_id', profile.id);
     setExitTicketDoneSet(new Set((exits ?? []).map((e: any) => e.program_day_id)));
+
+    // Standalone forms (End of Year Survey, Stay Connected)
+    const { data: forms } = await supabase
+      .from('standalone_forms')
+      .select('id, title, opens_at')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
+    setStandaloneForms(forms ?? []);
+
+    // Which forms has this student already submitted?
+    const { data: formResponses } = await supabase
+      .from('form_responses')
+      .select('form_id')
+      .eq('respondent_id', profile.id);
+    setSubmittedFormIds(new Set((formResponses ?? []).map((r: any) => r.form_id)));
   }
 
   useEffect(() => {
@@ -277,6 +300,58 @@ export default function RoadmapScreen() {
               </View>
             );
           })}
+
+          {/* Standalone forms divider + section */}
+          {standaloneForms.length > 0 && (
+            <>
+              <View style={styles.formsDivider}>
+                <View style={styles.formsDividerLine} />
+                <Text style={styles.formsDividerLabel}>FORMS</Text>
+                <View style={styles.formsDividerLine} />
+              </View>
+
+              {standaloneForms.map((form) => {
+                const isOpen = !!form.opens_at && new Date(form.opens_at) <= new Date();
+                const isDone = submittedFormIds.has(form.id);
+
+                return (
+                  <TouchableOpacity
+                    key={form.id}
+                    style={[styles.formCard, !isOpen && styles.formCardLocked]}
+                    onPress={() => {
+                      if (isDone) return;
+                      if (!isOpen) return;
+                      router.push(`/forms/${form.id}` as any);
+                    }}
+                    activeOpacity={isOpen && !isDone ? 0.7 : 1}
+                  >
+                    <View style={styles.formCardLeft}>
+                      <Ionicons
+                        name={isDone ? 'checkmark-circle' : isOpen ? 'document-text-outline' : 'lock-closed-outline'}
+                        size={20}
+                        color={isDone ? colors.success : isOpen ? colors.primaryMid : colors.textMuted}
+                      />
+                    </View>
+                    <View style={styles.formCardBody}>
+                      <Text style={[styles.formCardTitle, !isOpen && styles.formCardTitleLocked]}>
+                        {form.title}
+                      </Text>
+                      {isDone ? (
+                        <Text style={styles.formCardStatusDone}>Submitted ✓</Text>
+                      ) : isOpen ? (
+                        <Text style={styles.formCardStatusOpen}>Tap to fill out</Text>
+                      ) : (
+                        <Text style={styles.formCardStatusLocked}>Coming soon</Text>
+                      )}
+                    </View>
+                    {isOpen && !isDone && (
+                      <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </>
+          )}
         </ScrollView>
       )}
     </View>
@@ -457,5 +532,79 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.textMuted,
+  },
+  // Standalone forms section
+  formsDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  formsDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  formsDividerLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textMuted,
+    letterSpacing: 1.5,
+  },
+  formCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  formCardLocked: {
+    opacity: 0.55,
+  },
+  formCardLeft: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  formCardBody: {
+    flex: 1,
+  },
+  formCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    lineHeight: 19,
+  },
+  formCardTitleLocked: {
+    color: colors.textMuted,
+  },
+  formCardStatusOpen: {
+    fontSize: 12,
+    color: colors.primaryMid,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  formCardStatusLocked: {
+    fontSize: 12,
+    color: colors.textMuted,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  formCardStatusDone: {
+    fontSize: 12,
+    color: colors.success,
+    fontWeight: '700',
+    marginTop: 2,
   },
 });

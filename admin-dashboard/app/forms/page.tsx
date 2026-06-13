@@ -26,6 +26,7 @@ interface StandaloneForm {
   questions: Question[]
   sort_order: number
   is_active: boolean
+  opens_at: string | null
 }
 
 interface FormResponse {
@@ -366,6 +367,29 @@ export default function FormsPage() {
                 {activeForm.description && (
                   <p className="text-sm text-gray-500 mt-0.5">{activeForm.description}</p>
                 )}
+
+                {/* Opens At */}
+                <div className="flex items-center gap-3 mt-3 mb-1">
+                  <span className="text-sm font-semibold text-gray-600">Opens for students:</span>
+                  <input
+                    type="datetime-local"
+                    value={activeForm.opens_at ? activeForm.opens_at.slice(0, 16) : ''}
+                    onChange={async (e) => {
+                      const val = e.target.value ? new Date(e.target.value).toISOString() : null
+                      await supabase.from('standalone_forms').update({ opens_at: val }).eq('id', activeForm.id)
+                      setForms((prev) => prev.map((f) => f.id === activeForm.id ? { ...f, opens_at: val } : f))
+                    }}
+                    className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D2137]"
+                  />
+                  {activeForm.opens_at ? (
+                    <span className="text-xs font-semibold text-green-600 bg-green-50 border border-green-200 px-2 py-1 rounded-full">
+                      {new Date(activeForm.opens_at) <= new Date() ? '🟢 Open now' : '🟡 Scheduled'}
+                    </span>
+                  ) : (
+                    <span className="text-xs font-semibold text-gray-400 bg-gray-100 px-2 py-1 rounded-full">🔒 Locked</span>
+                  )}
+                </div>
+
                 <div className="flex gap-2 mt-3">
                   <button
                     onClick={() => setTab('responses')}
