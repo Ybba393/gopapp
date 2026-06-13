@@ -263,8 +263,7 @@ export default function ExitTicketsPage() {
     setEditingDate(null)
   }
 
-  async function handleSaveOpensAt(dayId: string, field: 'checkin_opens_at' | 'exit_ticket_opens_at', val: string | null) {
-    const iso = val ? new Date(val).toISOString() : null
+  async function handleSaveOpensAt(dayId: string, field: 'checkin_opens_at' | 'exit_ticket_opens_at', iso: string | null) {
     await supabase.from('program_days').update({ [field]: iso }).eq('id', dayId)
     setProgramDays((prev) => prev.map((d) => d.id === dayId ? { ...d, [field]: iso } : d))
   }
@@ -362,50 +361,50 @@ export default function ExitTicketsPage() {
                     )}
                   </div>
 
-                  {/* Check-in opens */}
+                  {/* Check-in */}
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wide w-32">Check-in Opens</span>
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wide w-32">Check-in</span>
                     <div className="flex items-center gap-2">
-                      <input
-                        type="datetime-local"
-                        value={activeDay.checkin_opens_at ? activeDay.checkin_opens_at.slice(0, 16) : ''}
-                        onChange={(e) => handleSaveOpensAt(activeDay.id, 'checkin_opens_at', e.target.value || null)}
-                        className="border border-gray-200 rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D2137]"
-                      />
-                      {activeDay.checkin_opens_at ? (
+                      {activeDay.checkin_opens_at && new Date(activeDay.checkin_opens_at) <= new Date() ? (
                         <>
-                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${new Date(activeDay.checkin_opens_at) <= new Date() ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                            {new Date(activeDay.checkin_opens_at) <= new Date() ? '🟢 Open' : '🟡 Scheduled'}
-                          </span>
-                          <button onClick={() => handleSaveOpensAt(activeDay.id, 'checkin_opens_at', null)}
-                            className="text-xs text-red-400 hover:text-red-600">Clear</button>
+                          <span className="text-xs font-semibold px-3 py-1 rounded-full bg-green-100 text-green-700">🟢 Open for students</span>
+                          <button
+                            onClick={() => handleSaveOpensAt(activeDay.id, 'checkin_opens_at', null)}
+                            className="text-xs font-bold text-red-500 border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50">
+                            Close
+                          </button>
                         </>
                       ) : (
-                        <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">🔒 Not set</span>
+                        <button
+                          onClick={() => handleSaveOpensAt(activeDay.id, 'checkin_opens_at', new Date().toISOString())}
+                          className="text-xs font-bold text-white px-4 py-1.5 rounded-lg hover:opacity-90"
+                          style={{ backgroundColor: '#0D2137' }}>
+                          Open Now
+                        </button>
                       )}
                     </div>
                   </div>
 
-                  {/* Exit ticket opens */}
+                  {/* Exit Ticket */}
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wide w-32">Exit Ticket Opens</span>
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wide w-32">Exit Ticket</span>
                     <div className="flex items-center gap-2">
-                      <input
-                        type="datetime-local"
-                        value={activeDay.exit_ticket_opens_at ? activeDay.exit_ticket_opens_at.slice(0, 16) : ''}
-                        onChange={(e) => handleSaveOpensAt(activeDay.id, 'exit_ticket_opens_at', e.target.value || null)}
-                        className="border border-gray-200 rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D2137]"
-                      />
-                      {activeDay.exit_ticket_opens_at ? (
+                      {activeDay.exit_ticket_opens_at && new Date(activeDay.exit_ticket_opens_at) <= new Date() ? (
                         <>
-                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${new Date(activeDay.exit_ticket_opens_at) <= new Date() ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                            {new Date(activeDay.exit_ticket_opens_at) <= new Date() ? '🟢 Open' : '🟡 Scheduled'}
-                          </span>
-                          <button onClick={() => handleSaveOpensAt(activeDay.id, 'exit_ticket_opens_at', null)}
-                            className="text-xs text-red-400 hover:text-red-600">Clear</button>
+                          <span className="text-xs font-semibold px-3 py-1 rounded-full bg-green-100 text-green-700">🟢 Open for students</span>
+                          <button
+                            onClick={() => handleSaveOpensAt(activeDay.id, 'exit_ticket_opens_at', null)}
+                            className="text-xs font-bold text-red-500 border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50">
+                            Close
+                          </button>
                         </>
                       ) : (
-                        <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">🔒 Not set</span>
+                        <button
+                          onClick={() => handleSaveOpensAt(activeDay.id, 'exit_ticket_opens_at', new Date().toISOString())}
+                          className="text-xs font-bold text-white px-4 py-1.5 rounded-lg hover:opacity-90"
+                          style={{ backgroundColor: '#0D2137' }}>
+                          Open Now
+                        </button>
                       )}
                     </div>
                   </div>
@@ -444,11 +443,6 @@ export default function ExitTicketsPage() {
                 {/* Questions editor */}
                 {view === 'questions' && (
                   <div className="space-y-3">
-                    <p className="text-sm text-gray-500">
-                      Students will see these questions at 3:00 PM on the day of the program.
-                      Choose from star ratings, short/long answers, and choice questions.
-                    </p>
-
                     {editQuestions.map((q, i) => (
                       <QuestionEditor key={q.id} q={q}
                         onChange={(updated) => setEditQuestions(editQuestions.map((x, idx) => idx === i ? updated : x))}

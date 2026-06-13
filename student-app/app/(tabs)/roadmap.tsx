@@ -269,10 +269,10 @@ export default function RoadmapScreen() {
                         <Ionicons name="document-text-outline" size={14} color={colors.primaryMid} />
                         <Text style={styles.exitTicketText}>Exit Ticket</Text>
                       </TouchableOpacity>
-                    ) : day.has_exit_ticket && !isPast ? (
+                    ) : day.has_exit_ticket ? (
                       <View style={[styles.actionBtn, styles.comingSoonBtn]}>
                         <Ionicons name="lock-closed-outline" size={14} color={colors.textMuted} />
-                        <Text style={styles.comingSoonText}>Not yet open</Text>
+                        <Text style={styles.comingSoonText}>Exit Ticket</Text>
                       </View>
                     ) : null}
                   </View>

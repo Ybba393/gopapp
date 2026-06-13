@@ -370,23 +370,33 @@ export default function FormsPage() {
 
                 {/* Opens At */}
                 <div className="flex items-center gap-3 mt-3 mb-1">
-                  <span className="text-sm font-semibold text-gray-600">Opens for students:</span>
-                  <input
-                    type="datetime-local"
-                    value={activeForm.opens_at ? activeForm.opens_at.slice(0, 16) : ''}
-                    onChange={async (e) => {
-                      const val = e.target.value ? new Date(e.target.value).toISOString() : null
-                      await supabase.from('standalone_forms').update({ opens_at: val }).eq('id', activeForm.id)
-                      setForms((prev) => prev.map((f) => f.id === activeForm.id ? { ...f, opens_at: val } : f))
-                    }}
-                    className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D2137]"
-                  />
-                  {activeForm.opens_at ? (
-                    <span className="text-xs font-semibold text-green-600 bg-green-50 border border-green-200 px-2 py-1 rounded-full">
-                      {new Date(activeForm.opens_at) <= new Date() ? '🟢 Open now' : '🟡 Scheduled'}
-                    </span>
+                  <span className="text-sm font-semibold text-gray-600">Students:</span>
+                  {activeForm.opens_at && new Date(activeForm.opens_at) <= new Date() ? (
+                    <>
+                      <span className="text-xs font-semibold px-3 py-1 rounded-full bg-green-100 text-green-700">🟢 Open now</span>
+                      <button
+                        onClick={async () => {
+                          await supabase.from('standalone_forms').update({ opens_at: null }).eq('id', activeForm.id)
+                          setForms((prev) => prev.map((f) => f.id === activeForm.id ? { ...f, opens_at: null } : f))
+                        }}
+                        className="text-xs font-bold text-red-500 border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50">
+                        Close
+                      </button>
+                    </>
                   ) : (
-                    <span className="text-xs font-semibold text-gray-400 bg-gray-100 px-2 py-1 rounded-full">🔒 Locked</span>
+                    <>
+                      <span className="text-xs font-semibold text-gray-400 bg-gray-100 px-2 py-1 rounded-full">🔒 Locked</span>
+                      <button
+                        onClick={async () => {
+                          const iso = new Date().toISOString()
+                          await supabase.from('standalone_forms').update({ opens_at: iso }).eq('id', activeForm.id)
+                          setForms((prev) => prev.map((f) => f.id === activeForm.id ? { ...f, opens_at: iso } : f))
+                        }}
+                        className="text-xs font-bold text-white px-4 py-1.5 rounded-lg hover:opacity-90"
+                        style={{ backgroundColor: '#0D2137' }}>
+                        Open Now
+                      </button>
+                    </>
                   )}
                 </div>
 
