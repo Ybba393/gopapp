@@ -52,6 +52,18 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(true)
   const [loadingCheckIns, setLoadingCheckIns] = useState(false)
 
+  async function handleUncheck(checkInId: string) {
+    if (!confirm('Remove this check-in?')) return
+    await supabase.from('attendance').delete().eq('id', checkInId)
+    if (!selectedDay) return
+    const { data } = await supabase
+      .from('attendance')
+      .select('*, profiles(name, email)')
+      .eq('program_day_id', selectedDay)
+      .order('checked_in_at')
+    setCheckIns((data ?? []) as any)
+  }
+
   useEffect(() => {
     async function load() {
       const { data: days } = await supabase
@@ -191,6 +203,7 @@ export default function AttendancePage() {
                                 <th className="text-left px-5 py-2.5 text-xs font-semibold text-gray-400">STUDENT</th>
                                 <th className="text-left px-5 py-2.5 text-xs font-semibold text-gray-400">EMAIL</th>
                                 <th className="text-right px-5 py-2.5 text-xs font-semibold text-gray-400">CHECK-IN TIME</th>
+                                <th className="px-5 py-2.5" />
                               </tr>
                             </thead>
                             <tbody>
@@ -206,6 +219,15 @@ export default function AttendancePage() {
                                     <span className="inline-flex items-center gap-1.5 text-xs font-bold text-green-700 bg-green-50 px-3 py-1.5 rounded-full">
                                       🕐 {formatTime(c.checked_in_at)}
                                     </span>
+                                  </td>
+                                  <td className="px-5 py-3 text-right">
+                                    <button
+                                      onClick={() => handleUncheck(c.id)}
+                                      className="text-xs text-red-400 hover:text-red-600 font-semibold"
+                                      title="Remove check-in"
+                                    >
+                                      ✕ Uncheck
+                                    </button>
                                   </td>
                                 </tr>
                               ))}

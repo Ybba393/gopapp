@@ -6,9 +6,10 @@ import { createClient } from '@/lib/supabase'
 
 const TABS = [
   { href: '/dashboard', icon: '🏠', label: 'Home' },
-  { href: '/roadmap', icon: '🗺️', label: 'Roadmap' },
+  { href: '/roadmap', icon: '📅', label: 'Program' },
   { href: '/hours', icon: '⏱️', label: 'Hours' },
   { href: '/messages', icon: '💬', label: 'Messages' },
+  { href: '/profile', icon: '👤', label: 'Profile' },
 ]
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

@@ -124,12 +124,13 @@ export default function HoursPage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50">
-          <div className="bg-white w-full max-w-lg rounded-t-3xl p-6 pb-10">
-            <div className="flex justify-between items-center mb-6">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] px-4" onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false) }}>
+          <div className="bg-white w-full max-w-lg rounded-3xl flex flex-col" style={{ maxHeight: '85vh' }}>
+            <div className="flex justify-between items-center px-6 pt-6 pb-4 flex-shrink-0">
               <h2 className="text-xl font-black" style={{ color: '#0D2137' }}>Log Hours</h2>
               <button onClick={() => setShowModal(false)} className="text-gray-400 text-2xl">✕</button>
             </div>
+            <div className="overflow-y-auto px-6 pb-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1.5">PROJECT / ORGANIZATION</label>
@@ -163,6 +164,7 @@ export default function HoursPage() {
                 {submitting ? 'Saving...' : 'Submit Log'}
               </button>
             </form>
+            </div>
           </div>
         </div>
       )}

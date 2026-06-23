@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 
-const MISSION = 'To build a community of young leaders who celebrate diversity and are dedicated to the elimination of discrimination in metropolitan Detroit.'
+const MISSION = 'To build a community of young leaders who celebrate diversity and are dedicated to the elimination of discrimination in metropolitan Detroit. Our efforts are guided by the belief that building relationships among youth of many cultures and ethnicities results in stronger relationships, an appreciation of individual differences, and creates a valuable corps of future leaders.'
 
 export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null)
@@ -126,7 +126,7 @@ export default function DashboardPage() {
                       style={{ background: '#EEF3FA', color: '#0D2137' }}>
                       {m.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
                     </div>
-                    <p className="text-sm font-semibold text-gray-800">{m.name}</p>
+                    <p className="text-sm font-semibold text-gray-800">{m.name}{m.id === userId ? '  (you)' : ''}</p>
                   </div>
                 ))}
               </div>

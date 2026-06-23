@@ -111,9 +111,17 @@ export default function StudentsPage() {
     await loadData()
   }
 
-  async function handleRemoveStudent(id: string) {
-    if (!confirm('Remove this student from the roster? They will not be able to sign up.')) return
+  async function handleRemoveStudent(id: string, email: string) {
+    if (!confirm('Remove this student from the roster? Their account will also be deleted.')) return
     await supabase.from('roster').delete().eq('id', id)
+    // Also delete their profile so Active Students count is accurate
+    await supabase.from('profiles').delete().eq('email', email)
+    // Delete auth user via service role
+    await fetch('/api/delete-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
     await loadData()
   }
 
@@ -234,7 +242,7 @@ export default function StudentsPage() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button
-                          onClick={() => handleRemoveStudent(entry.id)}
+                          onClick={() => handleRemoveStudent(entry.id, entry.email)}
                           className="text-xs text-red-400 hover:text-red-600 font-semibold"
                         >
                           Remove
