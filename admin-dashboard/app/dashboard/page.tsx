@@ -35,7 +35,10 @@ export default function DashboardPage() {
         { data: cohorts },
         { data: recentLogs },
       ] = await Promise.all([
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student'),
+        // Only count students who are on the roster AND have created an account
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student').in('email',
+          (await supabase.from('roster').select('email').eq('is_admin', false)).data?.map((r: any) => r.email) ?? []
+        ),
         supabase.from('capstone_groups').select('*', { count: 'exact', head: true }),
         supabase.from('attendance').select('*', { count: 'exact', head: true }).eq('status', 'present'),
         supabase.from('cohorts').select('*').eq('is_active', true).limit(1),
