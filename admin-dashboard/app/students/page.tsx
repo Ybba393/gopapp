@@ -88,14 +88,15 @@ export default function StudentsPage() {
     }
     setAddingAdmin(true)
     setAddAdminError('')
-    const { error } = await supabase.from('roster').insert({
-      name: adminName.trim(),
-      email: adminEmail.trim().toLowerCase(),
-      is_admin: true,
+    const res = await fetch('/api/create-admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: adminName.trim(), email: adminEmail.trim() }),
     })
+    const json = await res.json()
     setAddingAdmin(false)
-    if (error) {
-      setAddAdminError(error.message.includes('unique') ? 'This email is already on the roster.' : error.message)
+    if (!res.ok) {
+      setAddAdminError(json.error ?? 'Something went wrong.')
       return
     }
     setShowAddAdminModal(false)
@@ -293,7 +294,10 @@ export default function StudentsPage() {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl w-full max-w-md p-8 shadow-xl">
               <h2 className="text-xl font-black mb-2" style={{ color: '#0D2137' }}>Add Admin</h2>
-              <p className="text-gray-500 text-sm mb-6">This person will be able to log into the admin dashboard.</p>
+              <p className="text-gray-500 text-sm mb-1">This person will be able to log into the admin dashboard.</p>
+              <p className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 mb-6">
+                Their default password will be <strong>GOPAdmin!</strong> — tell them to use this to log in.
+              </p>
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1.5">FULL NAME</label>

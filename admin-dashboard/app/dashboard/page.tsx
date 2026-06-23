@@ -16,10 +16,17 @@ interface Stats {
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [adminName, setAdminName] = useState('')
 
   useEffect(() => {
     async function load() {
       const supabase = createClient()
+
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase.from('profiles').select('name').eq('id', user.id).single()
+        if (profile?.name) setAdminName(profile.name.split(' ')[0])
+      }
 
       const [
         { count: studentCount },
@@ -81,7 +88,7 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-black" style={{ color: '#0D2137' }}>
             Program Overview
           </h1>
-          <p className="text-gray-500 mt-1 text-sm">Welcome back, Mrs. Sykes.</p>
+          <p className="text-gray-500 mt-1 text-sm">Welcome back, {adminName || 'Admin'}.</p>
         </div>
 
         {/* Stat cards */}
